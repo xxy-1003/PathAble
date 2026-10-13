@@ -13,6 +13,8 @@ The Android model is Google's **EfficientDet-Lite0 (int8)**, not the desktop pro
 
 The debug APK is for personal testing. It is not a signed release build for distribution. The camera preview and analysis need testing on the target phone for orientation, frame rate, audio volume, and detection behaviour.
 
+Alternatively, the `codex/pathable-android` branch runs an **Android test APK** GitHub Actions workflow. After a successful run, open its **PathAble-debug-APK** artifact, download the ZIP, extract `app-debug.apk`, and open that APK on your Android phone. GitHub may require you to sign in to download the artifact. Android may ask you to allow installation from the app you used to open the APK.
+
 ## Limits
 
 This is a **possible obstacle warning demo**. Box size and image position are not distance measurements. The app does not determine that a route is safe, navigate between checkpoints, or reroute. The model only detects categories it was trained to recognise and can miss visible hazards. Do not use this prototype as a sole mobility aid.
