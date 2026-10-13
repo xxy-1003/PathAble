@@ -29,3 +29,8 @@ button {
     background: #176b67;
     color: white;
 }
+
+#processedCanvas {
+    display: block;
+    max-width: 100%;
+}
