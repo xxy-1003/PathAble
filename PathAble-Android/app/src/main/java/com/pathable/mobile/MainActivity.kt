@@ -75,7 +75,7 @@ class MainActivity : ComponentActivity() {
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             addView(preview, FrameLayout.LayoutParams(-1, -1))
-            addView(overlay, FrameLayout.LayoutParams(-1, -1))
+            addView(this@MainActivity.overlay, FrameLayout.LayoutParams(-1, -1))
             addView(panel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         }
         setContentView(root)
