@@ -1,0 +1,54 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.pathable.mobile'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.pathable.mobile'
+        minSdk 24
+        targetSdk 35
+        versionCode 1
+        versionName '0.1.0'
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    kotlinOptions { jvmTarget = '17' }
+    androidResources { noCompress 'tflite' }
+}
+
+dependencies {
+    implementation 'androidx.activity:activity-ktx:1.9.3'
+    implementation 'androidx.camera:camera-core:1.4.2'
+    implementation 'androidx.camera:camera-camera2:1.4.2'
+    implementation 'androidx.camera:camera-lifecycle:1.4.2'
+    implementation 'androidx.camera:camera-view:1.4.2'
+    implementation 'com.google.mediapipe:tasks-vision:1.0.0'
+}
+
+// Official MediaPipe EfficientDet-Lite0 model. Downloaded once during the first build.
+def modelFile = file('src/main/assets/efficientdet_lite0.tflite')
+tasks.register('downloadModel') {
+    outputs.file(modelFile)
+    doLast {
+        if (!modelFile.exists()) {
+            modelFile.parentFile.mkdirs()
+            def temporary = new File(modelFile.parentFile, modelFile.name + '.download')
+            try {
+                new URL('https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/int8/latest/efficientdet_lite0.tflite').withInputStream { input ->
+                    temporary.withOutputStream { output -> output << input }
+                }
+                if (temporary.length() < 1000000L) throw new GradleException('Model download is incomplete')
+                java.nio.file.Files.move(temporary.toPath(), modelFile.toPath(), java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+            } finally {
+                temporary.delete()
+            }
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn tasks.named('downloadModel') }
