@@ -1,0 +1,31 @@
+
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 24px;
+    background: #f4f7fb;
+    color: #172b4d;
+}
+
+main {
+    max-width: 600px;
+    margin: auto;
+}
+
+video {
+    width: 100%;
+    background: #172b4d;
+    border-radius: 12px;
+    display: block;
+    margin: 20px 0;
+}
+
+button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    border: none;
+    border-radius: 10px;
+    background: #176b67;
+    color: white;
+}
