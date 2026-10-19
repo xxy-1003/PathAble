@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "nodes": {
+    "0": "A",
+    "1": "B",
+    "2": "C",
+    "3": "D",
+    "4": "E",
+    "5": "F"
+  },
+  "edges": [
+    {"from": "A", "to": "B", "distance": 12.0, "blocked": false},
+    {"from": "B", "to": "C", "distance": 15.0, "blocked": false},
+    {"from": "C", "to": "D", "distance": 12.0, "blocked": false},
+    {"from": "B", "to": "E", "distance": 10.0, "blocked": false},
+    {"from": "E", "to": "F", "distance": 24.0, "blocked": false},
+    {"from": "F", "to": "D", "distance": 10.0, "blocked": false}
+  ]
+}

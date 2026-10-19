@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PathAble Indoor Navigation</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background: #121212; color: #fff; padding: 20px; }
+        video { width: 100%; max-width: 480px; height: auto; border-radius: 8px; background: #000; margin-top: 10px; }
+        button { padding: 15px 25px; font-size: 18px; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 6px; margin: 10px; cursor: pointer; }
+        #log-box { background: #222; border: 1px solid #444; padding: 10px; border-radius: 6px; margin-top: 15px; font-family: monospace; font-size: 14px; text-align: left; max-height: 150px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+
+    <h2>PathAble Mobile Client</h2>
+    <button id="start-btn" onclick="initSystem()">Start Navigation & Camera</button>
+    <br>
+    <video id="webcam" autoplay playsinline muted></video>
+    
+    <div id="log-box">Status: Ready. Tap 'Start Navigation' to begin...</div>
+
+    <script>
+        // 1. CHANGE THIS TO YOUR LAPTOP'S LOCAL IP ADDRESS (e.g., '192.168.1.50')
+        const LAPTOP_IP = '172.20.10.6'; 
+        
+        const video = document.getElementById('webcam');
+        const logBox = document.getElementById('log-box');
+        let ws = null;
+
+        function log(msg) {
+            console.log(msg);
+            logBox.innerText += "\n" + msg;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        async function initSystem() {
+            log("Requesting camera access...");
+
+            // Try requesting rear camera first, fallback to basic video if unavailable
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { exact: "environment" } }
+                });
+                video.srcObject = stream;
+                log("Rear camera active.");
+            } catch (err) {
+                log("Rear camera failed, trying default camera...");
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = stream;
+                    log("Default camera active.");
+                } catch (fallbackErr) {
+                    log("CAMERA ERROR: " + fallbackErr.message);
+                    alert("Camera error: " + fallbackErr.message + "\nCheck browser site permissions.");
+                    return;
+                }
+            }
+
+            // Connect WebSocket
+            connectWebSocket();
+        }
+let isProcessing = false; // Flag to prevent buffer backlog
+
+function connectWebSocket() {
+    ws = new WebSocket('ws://' + LAPTOP_IP + ':8080');
+
+    ws.onopen = () => {
+        log("Connected to Python Server!");
+        startFrameStreaming();
+    };
+
+    ws.onmessage = (event) => {
+        isProcessing = false; // Server finished! Ready for next frame.
+        const data = JSON.parse(event.data);
+        if (data.message) {
+            log("Server: " + data.message);
+            speakGuidance(data.message);
+        }
+    };
+}
+
+function startFrameStreaming() {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+
+    setInterval(() => {
+        // Only send if server is not busy
+        if (ws && ws.readyState === WebSocket.OPEN && video.videoWidth > 0 && !isProcessing) {
+            isProcessing = true; // Block sending until server responds
+            
+            canvas.width = 640;
+            canvas.height = 480;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const base64Image = canvas.toDataURL('image/jpeg', 0.6);
+            
+            ws.send(JSON.stringify({
+                type: 'frame',
+                data: base64Image
+            }));
+        }
+    }, 50); // Checks every 50ms, sends as fast as server responds
+}
+
+        function speakGuidance(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+    </script>
+</body>
+</html>
