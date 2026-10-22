@@ -40,9 +40,11 @@ python replay_demo.py
 
 The replay uses labelled, synthetic observations. It proves routing and
 decision behavior only. Camera capture and YOLO11n-seg masks have been tested
-as a separate probe; calibrated metric distance, ArUco pose on the physical
-route, speech, AWS event intake, shared map, approval, COOL, and measured
-safety or whole-pipeline latency targets are **not yet integrated or verified**.
+as a separate probe. A fixed-pose adapter now converts mask contact pixels
+into provisional near/medium/far observations, but it has only synthetic
+tests: physical floor distance, ArUco pose on the route, speech, AWS event
+intake, shared map, approval, COOL, and measured safety or whole-pipeline
+latency targets are **not yet verified**.
 The older `production_server.py` is a separate prototype; do not treat its
 bounding-box output as the v3 confidence/mask/distance event.
 
@@ -105,7 +107,22 @@ floor `(x,y)` in metres, using a stated origin and axes. Mark at least six
 spread-out points `fit` and two separate points `check`; do not use the same
 point for both. Run `python calibrate_floor.py points.csv
 calibration/camera.json`. It undistorts pixels, fits `cv.USAC_MAGSAC`, and
-rejects a held-out error over 0.15 m. The resulting JSON still needs its floor
-origin and fixed-mount fields confirmed before any distance-based guidance.
-These scripts do not establish that a chest-mounted phone keeps the same
-orientation while a person walks; that error needs a separate moving test.
+rejects a held-out error over 0.15 m. The resulting JSON still needs its
+`floor_origin_and_axes`, `camera_floor_xy_m` (the measured floor position
+directly below the lens), and `fixed_mount_verified` fields confirmed. Measure
+and record the floor origin and axes, then enter the camera point as `[x, y]`
+in that metre coordinate system. Complete the camera JSON's
+`verified_print_size` and `mount_description` **before** floor calibration;
+editing that camera file later invalidates the floor file's camera hash, so
+rerun `calibrate_floor.py`. Pixels outside the measured fit region remain
+distance-unknown rather than extrapolated.
+
+`calibrated_observation.py` accepts a frame only at the calibrated resolution
+and only when the caller explicitly supplies `same_pose_verified=True` for a
+stationary recorded-frame experiment. Missing flags, a changed camera file,
+contact outside the measured region, and values close to 1.0 m or 2.5 m
+boundaries yield `unknown`. Those bands are provisional demo settings, not
+measured safety thresholds. A frame with no target-class detection also has
+`unknown` zones: it is **not** proof of an empty corridor. Live walking and
+voice guidance remain disabled until moving-camera error and negative-detection
+reliability have been measured on the actual route.

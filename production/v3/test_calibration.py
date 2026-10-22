@@ -46,6 +46,7 @@ class CalibrationTests(unittest.TestCase):
             points_path = root / "points.csv"
             output_path = root / "floor.json"
             camera_path.write_text(json.dumps({
+                "image_size_px": [640, 480],
                 "camera_matrix": [[800, 0, 320], [0, 800, 240], [0, 0, 1]],
                 "distortion_coefficients": [0, 0, 0, 0, 0],
             }), encoding="utf-8")

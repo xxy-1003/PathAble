@@ -6,6 +6,7 @@ must come from one undistorted frame at the fixed demonstration camera pose.
 
 import argparse
 import csv
+import hashlib
 import json
 from pathlib import Path
 
@@ -44,11 +45,16 @@ def main() -> None:
     if len(fit) < 6 or len(checks) < 2:
         parser.error("Use at least six spread-out fit points and two separate check points")
 
-    camera = json.loads(args.calibration.read_text(encoding="utf-8"))
+    camera_bytes = args.calibration.read_bytes()
+    camera = json.loads(camera_bytes)
     matrix = np.asarray(camera["camera_matrix"], dtype=np.float64)
     distortion = np.asarray(camera["distortion_coefficients"], dtype=np.float64)
     if matrix.shape != (3, 3):
         parser.error("Invalid camera matrix")
+    image_size = camera.get("image_size_px")
+    if (not isinstance(image_size, list) or len(image_size) != 2
+            or any(not isinstance(value, int) or value <= 0 for value in image_size)):
+        parser.error("Camera calibration needs a valid image_size_px")
 
     def undistorted(rows):
         pixels = np.asarray([[row[0], row[1]] for row in rows], dtype=np.float64)
@@ -57,8 +63,8 @@ def main() -> None:
     fit_pixels = undistorted(fit)
     fit_metres = np.asarray([[row[2], row[3]] for row in fit], dtype=np.float64)
     homography, inliers = cv2.findHomography(fit_pixels, fit_metres, cv2.USAC_MAGSAC, 0.10)
-    if homography is None or inliers is None or inliers.sum() < 4:
-        raise SystemExit("Homography fit failed; remeasure spread-out floor points")
+    if homography is None or inliers is None or inliers.sum() < 6:
+        raise SystemExit("Homography needs at least six inlier fit points; remeasure the floor")
     check_pixels = undistorted(checks)
     check_metres = np.asarray([[row[2], row[3]] for row in checks], dtype=np.float64)
     errors = np.linalg.norm(project(check_pixels, homography) - check_metres, axis=1)
@@ -70,11 +76,16 @@ def main() -> None:
     result = {
         "homography_undistorted_px_to_floor_m": homography.tolist(),
         "camera_calibration": str(args.calibration.resolve()),
+        "camera_calibration_sha256": hashlib.sha256(camera_bytes).hexdigest(),
+        "image_size_px": image_size,
+        "fit_region_undistorted_px": cv2.convexHull(
+            fit_pixels[inliers.ravel() != 0].astype(np.float32)).reshape(-1, 2).tolist(),
         "fit_points": len(fit),
         "inliers": int(inliers.sum()),
         "check_points": len(checks),
         "max_held_out_error_m": max_error,
         "floor_origin_and_axes": "FILL IN: measured origin and x/y directions",
+        "camera_floor_xy_m": None,
         "fixed_mount_verified": False,
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

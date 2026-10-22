@@ -32,6 +32,7 @@ class Obstacle:
     confidence: float
     box: tuple[int, int, int, int]
     contact: tuple[int, int] | None
+    coverage: tuple[float, float, float]
 
 
 @dataclass(frozen=True)
@@ -142,5 +143,5 @@ class SegmentationDetector:
                     min(original_height, round((top + height - y0) / scale)),
                 )
                 obstacles.append(Obstacle(CLASSES[class_ids[index]], scores[index],
-                                          original_box, contact))
+                                          original_box, contact, zone_coverage(mask)))
         return VisionResult(tuple(obstacles), zone_coverage(union), inference_ms)
