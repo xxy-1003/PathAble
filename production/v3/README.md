@@ -76,18 +76,30 @@ target.
 
 ## Junction and floor calibration
 
-Print `output/pdf/PathAble_Markers_and_Checkerboard.pdf` on A4 at **actual size / 100%**.
-Pages 1-6 are markers 0-5 for junctions A-F. Measure the outer black square:
-it must be 150 mm wide. Page 7 has a 9 x 6 inner-corner checkerboard; measure
-one square at 18 mm. If either print is scaled, reprint before measuring.
+For a printed target, print `output/pdf/PathAble_Markers_and_Checkerboard.pdf`
+on A4 at **actual size / 100%**. Pages 1-6 are markers 0-5 for junctions A-F;
+their outer black squares must be 150 mm wide. Page 7 has a 9 x 6 inner-corner
+checkerboard with 18 mm squares. If a print is scaled, reprint it.
+
+If no printer is available, open `phone_checkerboard.svg` **on the phone** as a
+standalone image. It has 10 columns x 7 rows of squares (9 x 6 inner corners)
+and a white margin. Hold the phone in portrait, lock auto-rotation, and leave
+browser zoom unchanged for the whole calibration. Measure the displayed width
+of several adjacent squares with a ruler, divide by their count, and use that
+physical side length for `--square-mm`; do not assume CSS or PDF millimetres
+equal physical screen millimetres. Keep the whole checkerboard and white margin
+visible, avoid glare, and do not let the screen dim or rotate during captures.
 
 Use the **same camera and fixed mount** for every calibration and later run.
-For the laptop webcam, run `python calibrate_camera.py --camera 0 --backend dshow`.
-Move and tilt the printed checkerboard across the camera view, pressing SPACE
+For the laptop webcam and printed target, run
+`python calibrate_camera.py --camera 0 --backend dshow`.
+For the phone screen, run
+`python calibrate_camera.py --camera 0 --backend dshow --target phone_screen --square-mm MEASURED_VALUE`.
+Move and tilt the checkerboard across the camera view, pressing SPACE
 for 20 varied detected views. The tool saves intrinsics and distortion in
 ignored `calibration/camera.json` only if its RMS reprojection error is at most
 1.5 px; no calibration images are saved. After
-checking print size with a ruler, set `verified_print_size` to `true` and write
+checking the actual target size with a ruler, set `verified_target_size` to `true` and write
 the mount description in that JSON. A different Android phone camera requires
 its own file and calibration, even if Windows exposes it as a webcam.
 
@@ -122,7 +134,7 @@ rejects a held-out error over 0.15 m. The resulting JSON still needs its
 directly below the lens), and `fixed_mount_verified` fields confirmed. Measure
 and record the floor origin and axes, then enter the camera point as `[x, y]`
 in that metre coordinate system. Complete the camera JSON's
-`verified_print_size` and `mount_description` **before** floor calibration;
+`verified_target_size` and `mount_description` **before** floor calibration;
 editing that camera file later invalidates the floor file's camera hash, so
 rerun `calibrate_floor.py`. Pixels outside the measured fit region remain
 distance-unknown rather than extrapolated.

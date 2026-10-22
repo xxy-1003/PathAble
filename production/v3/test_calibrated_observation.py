@@ -22,7 +22,8 @@ class CalibratedObservationTests(unittest.TestCase):
         self.camera_path = Path(self.temp.name) / "camera.json"
         self.floor_path = Path(self.temp.name) / "floor.json"
         self.camera = {
-            "verified_print_size": True,
+            "verified_target_size": True,
+            "calibration_target": "phone_screen",
             "mount_description": "Fixed tripod at marked station",
             "image_size_px": [640, 480],
             "samples": 20,
@@ -57,10 +58,10 @@ class CalibratedObservationTests(unittest.TestCase):
         self.assertEqual(projector.distance_band((370, 240), (640, 480)), "unknown")
         self.assertEqual(projector.distance_band((370, 240), (320, 240), same_pose_verified=True), "unknown")
         self.assertEqual(projector.distance_band((700, 240), (640, 480), same_pose_verified=True), "unknown")
-        self.camera["verified_print_size"] = False
+        self.camera["verified_target_size"] = False
         self.save()
         self.assertFalse(self.projector().ready)
-        self.camera["verified_print_size"] = True
+        self.camera["verified_target_size"] = True
         self.save()
         self.camera_path.write_text(self.camera_path.read_text() + " ", encoding="utf-8")
         self.assertFalse(self.projector().ready)

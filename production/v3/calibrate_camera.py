@@ -1,7 +1,7 @@
 """Interactively measure intrinsics for one fixed PathAble camera/mount.
 
-Print the checkerboard from the supplied PDF at 100% scale. Press SPACE for
-each varied view; Q exits without claiming a calibration.
+Use the printed checkerboard or a phone showing phone_checkerboard.svg. Press
+SPACE for each varied view; Q exits without claiming a calibration.
 """
 
 import argparse
@@ -27,12 +27,21 @@ def main() -> None:
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--backend", choices=BACKENDS, default="dshow")
     parser.add_argument("--samples", type=int, default=20)
+    parser.add_argument("--target", choices=("printed_board", "phone_screen"),
+                        default="printed_board")
+    parser.add_argument("--square-mm", type=float,
+                        help="Ruler-measured side of one displayed square in millimetres")
     parser.add_argument("--output", type=Path, default=Path(__file__).parent / "calibration" / "camera.json")
     args = parser.parse_args()
     if not 10 <= args.samples <= 100:
         parser.error("--samples must be 10..100")
+    if args.target == "phone_screen" and args.square_mm is None:
+        parser.error("Phone screen requires --square-mm measured on the phone with a ruler")
+    square_mm = 18.0 if args.square_mm is None else args.square_mm
+    if not np.isfinite(square_mm) or square_mm <= 0:
+        parser.error("--square-mm must be a positive measured value")
 
-    columns, rows, square_mm = 9, 6, 18.0
+    columns, rows = 9, 6
     capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
     if not capture.isOpened():
         parser.error("Camera could not be opened")
@@ -41,7 +50,9 @@ def main() -> None:
     object_points, image_points = [], []
     previous_corners = None
     frame_size = None
-    print("Show the entire printed checkerboard. Move and tilt it between captures.")
+    print("Show the entire checkerboard and white margin. Move and tilt it between captures.")
+    if args.target == "phone_screen":
+        print("Keep the phone in portrait with rotation locked and browser zoom unchanged.")
     print("Press SPACE to accept a detected view; press Q to quit.")
     try:
         while len(image_points) < args.samples:
@@ -91,17 +102,18 @@ def main() -> None:
         "image_size_px": list(frame_size),
         "checkerboard_inner_corners": [columns, rows],
         "square_size_mm": square_mm,
+        "calibration_target": args.target,
         "samples": len(image_points),
         "rms_reprojection_px": float(rms),
         "camera_matrix": camera_matrix.tolist(),
         "distortion_coefficients": distortion.ravel().tolist(),
-        "verified_print_size": False,
+        "verified_target_size": False,
         "mount_description": "",
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(f"Saved {args.output}; RMS reprojection error {rms:.3f} px")
-    print("Measure the printed square with a ruler and document the camera mount before using distances.")
+    print("Verify the target square size with a ruler and document the camera mount before using distances.")
 
 
 if __name__ == "__main__":

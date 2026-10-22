@@ -21,6 +21,16 @@ class CalibrationTests(unittest.TestCase):
         points = board_object_points(9, 6, 18)
         self.assertEqual(points.shape, (54, 3))
         self.assertAlmostEqual(float(points[1, 0] - points[0, 0]), 0.018)
+        phone_points = board_object_points(9, 6, 6.5)
+        self.assertAlmostEqual(float(phone_points[1, 0] - phone_points[0, 0]), 0.0065)
+
+    def test_phone_screen_requires_measured_square_size(self):
+        result = subprocess.run([
+            sys.executable, str(Path(__file__).parent / "calibrate_camera.py"),
+            "--target", "phone_screen",
+        ], capture_output=True, text=True)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--square-mm", result.stderr)
 
     def test_printed_marker_id_and_relative_pose(self):
         frame = np.full((480, 640, 3), 255, dtype=np.uint8)

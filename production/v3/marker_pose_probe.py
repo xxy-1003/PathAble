@@ -59,8 +59,8 @@ def main() -> None:
     matrix = np.asarray(calibration["camera_matrix"], dtype=np.float64)
     distortion = np.asarray(calibration["distortion_coefficients"], dtype=np.float64)
     expected_size = tuple(calibration["image_size_px"])
-    if not calibration.get("verified_print_size"):
-        print("WARNING: printed calibration-square size has not been marked verified.")
+    if not calibration.get("verified_target_size", calibration.get("verified_print_size")):
+        print("WARNING: calibration-square size has not been marked verified.")
     detector = cv2.aruco.ArucoDetector(
         cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
     )

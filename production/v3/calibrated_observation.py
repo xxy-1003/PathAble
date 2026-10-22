@@ -27,7 +27,7 @@ class FloorProjector:
             camera_bytes = Path(camera_path).read_bytes()
             camera = json.loads(camera_bytes)
             floor = json.loads(Path(floor_path).read_text(encoding="utf-8"))
-            if (camera.get("verified_print_size") is not True
+            if (camera.get("verified_target_size", camera.get("verified_print_size")) is not True
                     or not camera.get("mount_description")
                     or floor.get("fixed_mount_verified") is not True
                     or not isinstance(floor.get("floor_origin_and_axes"), str)
