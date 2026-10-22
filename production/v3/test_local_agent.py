@@ -71,6 +71,11 @@ class LocalAgentTests(unittest.TestCase):
         results = [self.agent.observe(event(i, centre="occupied", left="occupied", right="occupied", distance="near")) for i in range(6)]
         self.assertEqual(results[-1].action, "STOP_AND_ESCALATE")
 
+    def test_unknown_obstacle_distance_never_continues(self):
+        results = [self.agent.observe(event(i, centre="occupied", distance="unknown")) for i in range(3)]
+        self.assertEqual([result.action for result in results],
+                         ["WAIT_AND_REOBSERVE", "WAIT_AND_REOBSERVE", "STOP_AND_ESCALATE"])
+
     def test_reroute_waits_for_new_corridor_to_be_verified(self):
         self.agent.observe(event(0, node="B"))
         for i in range(6):

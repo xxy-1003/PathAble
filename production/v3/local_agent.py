@@ -155,7 +155,9 @@ class LocalAgent:
             self.low_confidence_rechecks = 0
             return self._decision("CONTINUE")
 
-        if event.confidence < 0.60 or event.centre == "unknown":
+        if event.confidence < 0.60 or event.centre == "unknown" or (
+            event.centre == "occupied" and event.distance == "unknown"
+        ):
             self.low_confidence_rechecks += 1
             if self.low_confidence_rechecks >= 3:
                 return self._decision(

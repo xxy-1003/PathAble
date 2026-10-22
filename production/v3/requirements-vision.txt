@@ -1,0 +1,3 @@
+# Tested locally with Python 3.12; both versions also support Python 3.11.
+numpy==2.4.6
+opencv-contrib-python==5.0.0.93

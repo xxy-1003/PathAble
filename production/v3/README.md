@@ -45,18 +45,29 @@ and measured safety or latency targets are **not yet integrated or verified**.
 The older `production_server.py` is a separate prototype; do not treat its
 bounding-box output as the v3 confidence/mask/distance event.
 
-This checkout currently has no ONNX model, pinned Python requirements, or
-OpenCV installation in the bundled environment. The replay therefore has no
-camera or model dependency and can be used as the acceptance test for the
-decision module while the vision environment is prepared.
+The replay has no camera or model dependency and remains the acceptance test
+for the decision module. The model is downloaded locally into ignored `models/`
+rather than committed to Git.
 
 Next integration gate: obtain a pinned OpenCV 5 build and a compatible ONNX
 model, verify tensor shapes on the actual laptop, then produce `Observation`
 instances from recorded clips before enabling live voice directions. Use a
 safety spotter for any human corridor trial.
 
-For the model go/no-go check, install OpenCV 5 in a dedicated Python 3.11
-environment and run `python model_probe.py path\\to\\yolo11n-seg.onnx`.
+For the model go/no-go check, create a dedicated Python 3.11 or 3.12 environment,
+install `requirements-vision.txt`, run `download_model.ps1`, then run
+`python model_probe.py models\\yolo11n-seg.onnx`.
 It forces the new DNN engine, rejects a missing segmentation output, and prints
 the output tensor shapes. A blank-frame run is only a compatibility check;
 it is not evidence of correct masks, object classes, or 700 ms speech latency.
+
+`python camera_vision_probe.py --camera 0 --backend dshow --frames 10` uses the
+camera without saving images. It reports detection classes, segmentation-mask
+coverage of the lower L/C/R zones, and model inference time. It does **not**
+give voice directions: floor-distance calibration, route-position verification,
+and whole-pipeline timing remain required before connecting camera results to
+the decision agent. On 23 October 2026, the local built-in camera and official
+Ultralytics YOLO11n-seg ONNX model completed two ten-frame runs with OpenCV 5's
+forced new DNN engine; the median **inference-only** times were 69.5 and 59.6 ms.
+These short runs do not establish detection accuracy or the proposal's latency
+target.
