@@ -28,3 +28,9 @@ Next integration gate: obtain a pinned OpenCV 5 build and a compatible ONNX
 model, verify tensor shapes on the actual laptop, then produce `Observation`
 instances from recorded clips before enabling live voice directions. Use a
 safety spotter for any human corridor trial.
+
+For the model go/no-go check, install OpenCV 5 in a dedicated Python 3.11
+environment and run `python model_probe.py path\\to\\yolo11n-seg.onnx`.
+It forces the new DNN engine, rejects a missing segmentation output, and prints
+the output tensor shapes. A blank-frame run is only a compatibility check;
+it is not evidence of correct masks, object classes, or 700 ms speech latency.
