@@ -11,6 +11,7 @@ if HAS_OPENCV:
     import cv2
     import numpy as np
     from calibrate_camera import board_object_points
+    from marker_id_probe import detect_ids
     from marker_pose_probe import inspect, marker_object_points
 
 
@@ -34,6 +35,15 @@ class CalibrationTests(unittest.TestCase):
         self.assertEqual(marker_id, 2)
         self.assertAlmostEqual(xyz[2], 0.603, places=2)
         self.assertLess(error, 1.0)
+
+    def test_phone_screen_marker_id_recognition_needs_no_calibration(self):
+        frame = np.full((480, 640, 3), 255, dtype=np.uint8)
+        dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_4X4_50)
+        marker = cv2.aruco.generateImageMarker(dictionary, 0, 200)
+        frame[140:340, 220:420] = cv2.cvtColor(marker, cv2.COLOR_GRAY2BGR)
+        ids, corners = detect_ids(frame, cv2.aruco.ArucoDetector(dictionary))
+        self.assertEqual(ids, [0])
+        self.assertEqual(len(corners), 1)
 
     def test_floor_fit_checks_independent_measured_points(self):
         test_temp = Path(__file__).resolve().parent / ".test-tmp"

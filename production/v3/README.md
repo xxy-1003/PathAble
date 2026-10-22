@@ -97,6 +97,16 @@ It reports marker IDs and marker-relative pose, with a reprojection check.
 Turn-left/right guidance still needs measured wall-marker orientations in the
 map, so this probe does not issue navigation instructions.
 
+Before printing markers or calibrating the camera, you can test **ID recognition
+only** with a phone screen. Open an ArUco generator on the phone, choose 4x4
+(50, 100, 250, 1000), ID 0, and show the whole marker with a white margin.
+Close the Windows Camera app so it releases the webcam. From this directory run
+`.\.venv\Scripts\python.exe marker_id_probe.py --camera 0 --backend dshow`.
+If the window says `ID 0 detected`, the recognition check passed; press Q to
+exit. If camera 0 fails, run `camera_probe.py` in the same terminal to find a
+working index/backend. A phone-screen marker does not validate its physical
+size, camera calibration, pose, or floor distance.
+
 For floor distance, fix the camera in its demonstration mount and place at
 least eight **measured** visible reference points across the flat floor. Run
 `python capture_floor_frame.py` when no people are in view. Then run
