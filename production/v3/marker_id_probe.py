@@ -18,6 +18,14 @@ def detect_ids(frame, detector) -> tuple[list[int], object]:
     return ([] if ids is None else [int(value) for value in ids.flatten()]), corners
 
 
+def status_label(ids: list[int]) -> tuple[str, tuple[int, int, int]]:
+    nodes = [f"{marker_id} -> {'ABCDEF'[marker_id]}" for marker_id in ids
+             if 0 <= marker_id <= 5]
+    if nodes:
+        return "Detected: " + ", ".join(nodes), (0, 180, 0)
+    return "Show marker ID 0-5 | Q to quit", (0, 0, 220)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Recognize PathAble ArUco marker IDs without calibration")
     parser.add_argument("--camera", type=int, default=0)
@@ -34,7 +42,7 @@ def main() -> None:
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     print("Hold the phone marker in view with the whole black square and white margin visible.")
-    print("A green 'ID 0 detected' label means this recognition test passed. Press Q to quit.")
+    print("A green 'Detected: ID -> node' label means recognition passed. Press Q to quit.")
     previous_ids = None
     try:
         while True:
@@ -47,9 +55,7 @@ def main() -> None:
                 previous_ids = ids
             if ids:
                 cv2.aruco.drawDetectedMarkers(frame, corners)
-            found_zero = 0 in ids
-            label = "ID 0 detected" if found_zero else "Show marker ID 0 | Q to quit"
-            color = (0, 180, 0) if found_zero else (0, 0, 220)
+            label, color = status_label(ids)
             cv2.putText(frame, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
             cv2.imshow("PathAble marker ID test", frame)
             if cv2.waitKey(1) & 0xFF in (ord("q"), 27):

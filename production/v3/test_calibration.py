@@ -11,7 +11,7 @@ if HAS_OPENCV:
     import cv2
     import numpy as np
     from calibrate_camera import board_object_points
-    from marker_id_probe import detect_ids
+    from marker_id_probe import detect_ids, status_label
     from marker_pose_probe import inspect, marker_object_points
 
 
@@ -44,6 +44,11 @@ class CalibrationTests(unittest.TestCase):
         ids, corners = detect_ids(frame, cv2.aruco.ArucoDetector(dictionary))
         self.assertEqual(ids, [0])
         self.assertEqual(len(corners), 1)
+
+    def test_marker_status_names_any_pathable_node(self):
+        self.assertEqual(status_label([1])[0], "Detected: 1 -> B")
+        self.assertEqual(status_label([5])[0], "Detected: 5 -> F")
+        self.assertIn("Show marker", status_label([])[0])
 
     def test_floor_fit_checks_independent_measured_points(self):
         test_temp = Path(__file__).resolve().parent / ".test-tmp"
