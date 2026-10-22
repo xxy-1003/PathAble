@@ -83,7 +83,8 @@ checkerboard with 18 mm squares. If a print is scaled, reprint it.
 
 If no printer is available, open `phone_checkerboard.svg` **on the phone** as a
 standalone image. It has 10 columns x 7 rows of squares (9 x 6 inner corners)
-and a white margin. Hold the phone in portrait, lock auto-rotation, and leave
+and a white margin. The QR in `output/qr/phone_checkerboard_qr.png` opens that
+SVG directly on the phone. Hold the phone in portrait, lock auto-rotation, and leave
 browser zoom unchanged for the whole calibration. Measure the displayed width
 of several adjacent squares with a ruler, divide by their count, and use that
 physical side length for `--square-mm`; do not assume CSS or PDF millimetres
