@@ -39,9 +39,10 @@ python replay_demo.py
 ```
 
 The replay uses labelled, synthetic observations. It proves routing and
-decision behavior only. Camera capture, YOLO11n-seg masks, calibrated metric
-distance, ArUco pose, speech, AWS event intake, shared map, approval, COOL,
-and measured safety or latency targets are **not yet integrated or verified**.
+decision behavior only. Camera capture and YOLO11n-seg masks have been tested
+as a separate probe; calibrated metric distance, ArUco pose on the physical
+route, speech, AWS event intake, shared map, approval, COOL, and measured
+safety or whole-pipeline latency targets are **not yet integrated or verified**.
 The older `production_server.py` is a separate prototype; do not treat its
 bounding-box output as the v3 confidence/mask/distance event.
 
@@ -49,10 +50,9 @@ The replay has no camera or model dependency and remains the acceptance test
 for the decision module. The model is downloaded locally into ignored `models/`
 rather than committed to Git.
 
-Next integration gate: obtain a pinned OpenCV 5 build and a compatible ONNX
-model, verify tensor shapes on the actual laptop, then produce `Observation`
-instances from recorded clips before enabling live voice directions. Use a
-safety spotter for any human corridor trial.
+Next integration gate: calibrate the printed markers, camera and floor on the
+actual route, then produce `Observation` instances from recorded clips before
+enabling live voice directions. Use a safety spotter for any human corridor trial.
 
 For the model go/no-go check, create a dedicated Python 3.11 or 3.12 environment,
 install `requirements-vision.txt`, run `download_model.ps1`, then run
@@ -71,3 +71,41 @@ Ultralytics YOLO11n-seg ONNX model completed two ten-frame runs with OpenCV 5's
 forced new DNN engine; the median **inference-only** times were 69.5 and 59.6 ms.
 These short runs do not establish detection accuracy or the proposal's latency
 target.
+
+## Junction and floor calibration
+
+Print `output/pdf/PathAble_Markers_and_Checkerboard.pdf` on A4 at **actual size / 100%**.
+Pages 1-6 are markers 0-5 for junctions A-F. Measure the outer black square:
+it must be 150 mm wide. Page 7 has a 9 x 6 inner-corner checkerboard; measure
+one square at 18 mm. If either print is scaled, reprint before measuring.
+
+Use the **same camera and fixed mount** for every calibration and later run.
+For the laptop webcam, run `python calibrate_camera.py --camera 0 --backend dshow`.
+Move and tilt the printed checkerboard across the camera view, pressing SPACE
+for 20 varied detected views. The tool saves intrinsics and distortion in
+ignored `calibration/camera.json` only if its RMS reprojection error is at most
+1.5 px; no calibration images are saved. After
+checking print size with a ruler, set `verified_print_size` to `true` and write
+the mount description in that JSON. A different Android phone camera requires
+its own file and calibration, even if Windows exposes it as a webcam.
+
+With a marker in front of the calibrated camera, run
+`python marker_pose_probe.py calibration/camera.json --camera 0 --backend dshow`.
+It reports marker IDs and marker-relative pose, with a reprojection check.
+Turn-left/right guidance still needs measured wall-marker orientations in the
+map, so this probe does not issue navigation instructions.
+
+For floor distance, fix the camera in its demonstration mount and place at
+least eight **measured** visible reference points across the flat floor. Run
+`python capture_floor_frame.py` when no people are in view. Then run
+`python inspect_floor_pixels.py calibration/floor_frame.png` and click the
+reference points to read pixel coordinates. Start from
+`floor_points_template.csv`; enter each point's image `(x,y)` and measured
+floor `(x,y)` in metres, using a stated origin and axes. Mark at least six
+spread-out points `fit` and two separate points `check`; do not use the same
+point for both. Run `python calibrate_floor.py points.csv
+calibration/camera.json`. It undistorts pixels, fits `cv.USAC_MAGSAC`, and
+rejects a held-out error over 0.15 m. The resulting JSON still needs its floor
+origin and fixed-mount fields confirmed before any distance-based guidance.
+These scripts do not establish that a chest-mounted phone keeps the same
+orientation while a person walks; that error needs a separate moving test.

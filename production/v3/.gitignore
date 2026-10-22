@@ -3,3 +3,5 @@ __pycache__/
 .venv/
 .uv-cache/
 models/
+calibration/
+.test-tmp/
