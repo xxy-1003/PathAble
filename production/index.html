@@ -3,109 +3,520 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PathAble Indoor Navigation</title>
+    <title>PathAble — Real-Time AI Navigation System</title>
     <style>
-        body { font-family: sans-serif; text-align: center; background: #121212; color: #fff; padding: 20px; }
-        video { width: 100%; max-width: 480px; height: auto; border-radius: 8px; background: #000; margin-top: 10px; }
-        button { padding: 15px 25px; font-size: 18px; font-weight: bold; background: #007bff; color: white; border: none; border-radius: 6px; margin: 10px; cursor: pointer; }
-        #log-box { background: #222; border: 1px solid #444; padding: 10px; border-radius: 6px; margin-top: 15px; font-family: monospace; font-size: 14px; text-align: left; max-height: 150px; overflow-y: auto; }
+        :root {
+            --bg-color: #0b0d11;
+            --surface: #14171f;
+            --surface-border: #232834;
+            --primary: #3b82f6;
+            --accent-green: #10b981;
+            --accent-yellow: #f59e0b;
+            --accent-red: #ef4444;
+            --accent-purple: #8b5cf6;
+            --text-main: #f8fafc;
+            --text-dim: #94a3b8;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 12px;
+        }
+
+        header {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--surface-border);
+            margin-bottom: 12px;
+        }
+
+        h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; display: flex; align-items: center; gap: 8px; }
+        .tag { font-size: 0.68rem; background: var(--primary); padding: 2px 7px; border-radius: 999px; text-transform: uppercase; font-weight: 700; }
+
+        /* Dashboard Badges */
+        .dashboard {
+            width: 100%;
+            max-width: 640px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+        }
+        .stat-title { font-size: 0.72rem; color: var(--text-dim); text-transform: uppercase; font-weight: 600; margin-bottom: 2px; }
+        .stat-value { font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+
+        /* Action Badge */
+        #action-badge {
+            font-size: 0.82rem;
+            padding: 4px 10px;
+            border-radius: 6px;
+            background: #1e293b;
+            color: #94a3b8;
+            font-weight: 700;
+            display: inline-block;
+            text-align: center;
+        }
+        .action-CONTINUE { background: rgba(16, 185, 129, 0.2) !important; color: #34d399 !important; border: 1px solid #10b981; }
+        .action-STEP_ASIDE_RIGHT, .action-STEP_ASIDE_LEFT { background: rgba(245, 158, 11, 0.2) !important; color: #fbbf24 !important; border: 1px solid #f59e0b; }
+        .action-WAIT_AND_REOBSERVE { background: rgba(245, 158, 11, 0.2) !important; color: #fbbf24 !important; border: 1px solid #f59e0b; }
+        .action-REROUTE { background: rgba(139, 92, 246, 0.2) !important; color: #a78bfa !important; border: 1px solid #8b5cf6; }
+        .action-STOP { background: rgba(239, 68, 68, 0.2) !important; color: #f87171 !important; border: 1px solid #ef4444; }
+
+        /* Video Container with Visual Canvas */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            max-width: 640px;
+            aspect-ratio: 4 / 3;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            border: 1px solid var(--surface-border);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        }
+        video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        canvas#overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .controls {
+            width: 100%;
+            max-width: 640px;
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+        button {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-secondary { background: var(--surface); color: var(--text-main); border: 1px solid var(--surface-border); }
+        .btn-secondary:hover { background: #1c212c; }
+
+        /* Log / Terminal */
+        .log-container {
+            width: 100%;
+            max-width: 640px;
+            background: var(--surface);
+            border: 1px solid var(--surface-border);
+            border-radius: 8px;
+            margin-top: 12px;
+            padding: 10px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.78rem;
+            max-height: 140px;
+            overflow-y: auto;
+            color: #94a3b8;
+        }
+        .log-entry { margin-bottom: 4px; line-height: 1.4; }
+        .log-time { color: #64748b; margin-right: 6px; }
+        .log-msg { color: #f8fafc; }
+        .log-detect { color: #38bdf8; }
+        .log-warn { color: #f59e0b; }
     </style>
 </head>
 <body>
 
-    <h2>PathAble Mobile Client</h2>
-    <button id="start-btn" onclick="initSystem()">Start Navigation & Camera</button>
-    <br>
-    <video id="webcam" autoplay playsinline muted></video>
-    
-    <div id="log-box">Status: Ready. Tap 'Start Navigation' to begin...</div>
+    <header>
+        <h1>PathAble <span class="tag">Edge AI · OpenCV 5</span></h1>
+        <div id="conn-status" style="font-size: 0.75rem; color: #ef4444; font-weight: 600;">● Disconnected</div>
+    </header>
+
+    <!-- Top Dashboard -->
+    <div class="dashboard">
+        <div class="stat-card">
+            <span class="stat-title">Current Route</span>
+            <span class="stat-value" id="route-display">A ➔ B ➔ C ➔ D</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Action State</span>
+            <div><span id="action-badge" class="action-CONTINUE">STANDBY</span></div>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Active Node</span>
+            <span class="stat-value" id="node-display">Node A (Entrance)</span>
+        </div>
+        <div class="stat-card">
+            <span class="stat-title">Performance</span>
+            <span class="stat-value"><span id="fps-display">--</span> FPS</span>
+        </div>
+    </div>
+
+    <!-- Live Camera Container with Overlay Canvas -->
+    <div class="camera-container">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="overlay" width="640" height="480"></canvas>
+    </div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button id="start-btn" class="btn-primary" onclick="toggleNavigation()">▶ Start Navigation</button>
+        <button id="camera-btn" class="btn-secondary" onclick="switchCamera()">🔄 Switch Camera</button>
+        <button id="reset-btn" class="btn-secondary" onclick="resetRoute()">⟲ Reset Route</button>
+        <button id="voice-btn" class="btn-secondary" onclick="toggleVoice()">🔊 Voice: ON</button>
+    </div>
+
+    <!-- Terminal Log -->
+    <div class="log-container" id="log-box">
+        <div class="log-entry"><span class="log-time">[Ready]</span><span class="log-msg">Tap 'Start Navigation' to activate live camera and OpenCV 5 AI engine.</span></div>
+    </div>
 
     <script>
-        // 1. CHANGE THIS TO YOUR LAPTOP'S LOCAL IP ADDRESS (e.g., '192.168.1.50')
-        const LAPTOP_IP = '172.20.10.6'; 
-        
+        const LAPTOP_IP = window.location.hostname || 'localhost';
         const video = document.getElementById('webcam');
+        const overlayCanvas = document.getElementById('overlay');
+        const overlayCtx = overlayCanvas.getContext('2d');
         const logBox = document.getElementById('log-box');
+        
         let ws = null;
+        let isNavigating = false;
+        let isProcessing = false;
+        let lastProcessStartTime = 0;
+        let voiceEnabled = true;
+        let currentFacingMode = 'environment';
+        let currentStream = null;
 
-        function log(msg) {
-            console.log(msg);
-            logBox.innerText += "\n" + msg;
+        let lastSpokenText = "";
+        let lastSpokenTime = 0;
+
+        function addLog(msg, type = "msg") {
+            const timeStr = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = "log-entry";
+            div.innerHTML = `<span class="log-time">[${timeStr}]</span><span class="log-${type}">${msg}</span>`;
+            logBox.appendChild(div);
             logBox.scrollTop = logBox.scrollHeight;
         }
 
-        async function initSystem() {
-            log("Requesting camera access...");
-
-            // Try requesting rear camera first, fallback to basic video if unavailable
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { exact: "environment" } }
-                });
-                video.srcObject = stream;
-                log("Rear camera active.");
-            } catch (err) {
-                log("Rear camera failed, trying default camera...");
-                try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    video.srcObject = stream;
-                    log("Default camera active.");
-                } catch (fallbackErr) {
-                    log("CAMERA ERROR: " + fallbackErr.message);
-                    alert("Camera error: " + fallbackErr.message + "\nCheck browser site permissions.");
-                    return;
+        async function toggleNavigation() {
+            const btn = document.getElementById('start-btn');
+            if (!isNavigating) {
+                isNavigating = true;
+                btn.innerText = "⏹ Stop Navigation";
+                btn.style.background = "#ef4444";
+                await initCamera();
+                connectWebSocket();
+            } else {
+                isNavigating = false;
+                btn.innerText = "▶ Start Navigation";
+                btn.style.background = "#3b82f6";
+                if (currentStream) {
+                    currentStream.getTracks().forEach(track => track.stop());
                 }
+                if (ws) ws.close();
+                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                document.getElementById('conn-status').innerHTML = "● Disconnected";
+                document.getElementById('conn-status').style.color = "#ef4444";
+                addLog("Navigation stopped.", "warn");
+            }
+        }
+
+        async function initCamera() {
+            addLog("Opening camera feed...", "msg");
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
             }
 
-            // Connect WebSocket
-            connectWebSocket();
+            try {
+                currentStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: currentFacingMode,
+                        width: { ideal: 640 },
+                        height: { ideal: 480 }
+                    }
+                });
+                video.srcObject = currentStream;
+                addLog(`Camera active (${currentFacingMode}).`, "msg");
+            } catch (err) {
+                addLog("Camera error: " + err.message + ", falling back to default camera.", "warn");
+                try {
+                    currentStream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    video.srcObject = currentStream;
+                } catch (fallbackErr) {
+                    alert("Unable to open camera: " + fallbackErr.message);
+                }
+            }
         }
-let isProcessing = false; // Flag to prevent buffer backlog
 
-function connectWebSocket() {
-    ws = new WebSocket('ws://' + LAPTOP_IP + ':8080');
-
-    ws.onopen = () => {
-        log("Connected to Python Server!");
-        startFrameStreaming();
-    };
-
-    ws.onmessage = (event) => {
-        isProcessing = false; // Server finished! Ready for next frame.
-        const data = JSON.parse(event.data);
-        if (data.message) {
-            log("Server: " + data.message);
-            speakGuidance(data.message);
+        function switchCamera() {
+            currentFacingMode = (currentFacingMode === 'environment') ? 'user' : 'environment';
+            if (isNavigating) {
+                initCamera();
+            }
         }
-    };
-}
 
-function startFrameStreaming() {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-
-    setInterval(() => {
-        // Only send if server is not busy
-        if (ws && ws.readyState === WebSocket.OPEN && video.videoWidth > 0 && !isProcessing) {
-            isProcessing = true; // Block sending until server responds
-            
-            canvas.width = 640;
-            canvas.height = 480;
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const base64Image = canvas.toDataURL('image/jpeg', 0.6);
-            
-            ws.send(JSON.stringify({
-                type: 'frame',
-                data: base64Image
-            }));
+        function toggleVoice() {
+            voiceEnabled = !voiceEnabled;
+            document.getElementById('voice-btn').innerText = voiceEnabled ? "🔊 Voice: ON" : "🔇 Voice: MUTED";
+            if (!voiceEnabled && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
         }
-    }, 50); // Checks every 50ms, sends as fast as server responds
-}
+
+        function resetRoute() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: "reset" }));
+                addLog("Sent route reset request to server.", "msg");
+            }
+        }
+
+        function connectWebSocket() {
+            const statusEl = document.getElementById('conn-status');
+            statusEl.innerHTML = "● Connecting...";
+            statusEl.style.color = "#f59e0b";
+
+            ws = new WebSocket('ws://' + LAPTOP_IP + ':8080');
+
+            ws.onopen = () => {
+                statusEl.innerHTML = "● Connected (Live)";
+                statusEl.style.color = "#10b981";
+                addLog("Connected to PathAble Edge Engine!", "detect");
+                startStreamingLoop();
+            };
+
+            ws.onmessage = (event) => {
+                isProcessing = false; // Finished frame
+                try {
+                    const data = JSON.parse(event.data);
+                    handleServerResponse(data);
+                } catch (e) {
+                    console.error("Error parsing server packet:", e);
+                }
+            };
+
+            ws.onclose = () => {
+                statusEl.innerHTML = "● Disconnected";
+                statusEl.style.color = "#ef4444";
+                if (isNavigating) {
+                    addLog("WebSocket disconnected. Reconnecting in 2s...", "warn");
+                    setTimeout(() => { if (isNavigating) connectWebSocket(); }, 2000);
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.error("WebSocket error:", err);
+            };
+        }
+
+        function handleServerResponse(data) {
+            // 1. Update Route & Nodes in HUD
+            if (data.route) {
+                document.getElementById('route-display').innerText = data.route.join(' ➔ ');
+            }
+            if (data.current_node) {
+                document.getElementById('node-display').innerText = `Node ${data.current_node}`;
+            }
+            if (data.fps) {
+                document.getElementById('fps-display').innerText = data.fps;
+            }
+
+            // 2. Update Action Badge
+            if (data.action) {
+                const badge = document.getElementById('action-badge');
+                badge.innerText = data.action.replace(/_/g, ' ');
+                badge.className = `action-${data.action}`;
+            }
+
+            // 3. Spoken voice announcement (debounced)
+            if (data.message && voiceEnabled) {
+                speakGuidance(data.message);
+                addLog(data.message, "msg");
+            }
+
+            // 4. Render Visual Detection Boxes & Zones on Canvas
+            renderDetections(data);
+        }
+
+        function renderDetections(data) {
+            const ctx = overlayCtx;
+            const w = overlayCanvas.width;
+            const h = overlayCanvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // 1. Draw Floor Walking Corridor Zones (Lower 60% of screen)
+            const floorTop = h * 0.40;
+            const leftZoneW = w * 0.30;
+            const centerZoneW = w * 0.40;
+            const rightZoneX = w * 0.70;
+
+            const zones = data.zones || { left: false, center: false, right: false };
+
+            // Left Zone
+            ctx.fillStyle = zones.left ? "rgba(239, 68, 68, 0.22)" : "rgba(16, 185, 129, 0.08)";
+            ctx.fillRect(0, floorTop, leftZoneW, h - floorTop);
+            ctx.strokeStyle = zones.left ? "#ef4444" : "rgba(16, 185, 129, 0.3)";
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(0, floorTop, leftZoneW, h - floorTop);
+
+            // Centre Walking Path
+            ctx.fillStyle = zones.center ? "rgba(239, 68, 68, 0.32)" : "rgba(16, 185, 129, 0.12)";
+            ctx.fillRect(leftZoneW, floorTop, centerZoneW, h - floorTop);
+            ctx.strokeStyle = zones.center ? "#ef4444" : "#10b981";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(leftZoneW, floorTop, centerZoneW, h - floorTop);
+
+            // Right Zone
+            ctx.fillStyle = zones.right ? "rgba(239, 68, 68, 0.22)" : "rgba(16, 185, 129, 0.08)";
+            ctx.fillRect(rightZoneX, floorTop, leftZoneW, h - floorTop);
+            ctx.strokeStyle = zones.right ? "#ef4444" : "rgba(16, 185, 129, 0.3)";
+            ctx.strokeRect(rightZoneX, floorTop, leftZoneW, h - floorTop);
+            ctx.setLineDash([]); // Reset dash
+
+            // Zone Labels
+            ctx.font = "bold 11px sans-serif";
+            ctx.fillStyle = zones.left ? "#ef4444" : "#94a3b8";
+            ctx.fillText("LEFT ZONE", 10, h - 12);
+            ctx.fillStyle = zones.center ? "#ef4444" : "#10b981";
+            ctx.fillText("WALKING PATH", leftZoneW + 10, h - 12);
+            ctx.fillStyle = zones.right ? "#ef4444" : "#94a3b8";
+            ctx.fillText("RIGHT ZONE", rightZoneX + 10, h - 12);
+
+            // 2. Draw ArUco Junction Marker (if detected)
+            if (data.aruco && data.aruco.corners) {
+                const pts = data.aruco.corners;
+                ctx.beginPath();
+                ctx.moveTo(pts[0][0], pts[0][1]);
+                for (let i = 1; i < pts.length; i++) {
+                    ctx.lineTo(pts[i][0], pts[i][1]);
+                }
+                ctx.closePath();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "#00f0ff";
+                ctx.stroke();
+                ctx.fillStyle = "rgba(0, 240, 255, 0.2)";
+                ctx.fill();
+
+                // Draw ArUco Tag Pill
+                const tagX = pts[0][0];
+                const tagY = Math.max(20, pts[0][1] - 8);
+                const tagText = `JUNCTION ${data.aruco.node || '?'} [ID ${data.aruco.id}]`;
+                ctx.font = "bold 13px sans-serif";
+                const textW = ctx.measureText(tagText).width;
+                ctx.fillStyle = "#00f0ff";
+                ctx.fillRect(tagX, tagY - 16, textW + 12, 20);
+                ctx.fillStyle = "#000";
+                ctx.fillText(tagText, tagX + 6, tagY - 2);
+            }
+
+            // 3. Draw Detected Obstacle Bounding Boxes (YOLO)
+            if (data.boxes && data.boxes.length > 0) {
+                data.boxes.forEach(item => {
+                    const [bx, by, bw, bh] = item.box;
+                    const cname = item.class_name.toUpperCase();
+                    const conf = Math.round(item.confidence * 100);
+                    const dist = item.distance.toUpperCase();
+
+                    // Color based on whether it is in the walking path
+                    const inCenterPath = (bx + bw > leftZoneW) && (bx < rightZoneX) && (by + bh > floorTop);
+                    const boxColor = inCenterPath ? "#ef4444" : "#f59e0b";
+
+                    // Box Outline
+                    ctx.strokeStyle = boxColor;
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(bx, by, bw, bh);
+
+                    // Pill Badge
+                    const labelText = `${cname} ${conf}% · ${dist}`;
+                    ctx.font = "bold 12px sans-serif";
+                    const tw = ctx.measureText(labelText).width;
+                    const pillY = Math.max(18, by - 6);
+
+                    ctx.fillStyle = boxColor;
+                    ctx.fillRect(bx, pillY - 14, tw + 10, 18);
+                    ctx.fillStyle = "#000";
+                    ctx.fillText(labelText, bx + 5, pillY);
+                });
+            }
+        }
+
+        function startStreamingLoop() {
+            const sendCanvas = document.createElement('canvas');
+            sendCanvas.width = 640;
+            sendCanvas.height = 480;
+            const sendCtx = sendCanvas.getContext('2d');
+
+            setInterval(() => {
+                if (!isNavigating) return;
+
+                // Watchdog: If a previous frame took > 800ms, unlock
+                if (isProcessing && (Date.now() - lastProcessStartTime > 800)) {
+                    isProcessing = false;
+                }
+
+                if (ws && ws.readyState === WebSocket.OPEN && video.videoWidth > 0 && !isProcessing) {
+                    isProcessing = true;
+                    lastProcessStartTime = Date.now();
+
+                    sendCtx.drawImage(video, 0, 0, 640, 480);
+                    const base64Img = sendCanvas.toDataURL('image/jpeg', 0.65);
+
+                    ws.send(JSON.stringify({
+                        type: 'frame',
+                        data: base64Img
+                    }));
+                }
+            }, 60); // Sends frames smoothly at ~15 FPS
+        }
 
         function speakGuidance(text) {
+            if (!text || text.trim() === '') return;
+            const now = Date.now();
+
+            // Debounce: Avoid repeating identical message within 2.5 seconds
+            if (text === lastSpokenText && (now - lastSpokenTime < 2500)) {
+                return;
+            }
+
+            lastSpokenText = text;
+            lastSpokenTime = now;
+
             if ('speechSynthesis' in window) {
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05;
                 window.speechSynthesis.speak(utterance);
             }
         }
