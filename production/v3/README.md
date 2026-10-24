@@ -7,29 +7,25 @@ and stop decisions when the camera or route is unavailable.
 
 ## Available cameras
 
-The team has a laptop with an integrated webcam and an Android phone, but no
-separate USB webcam. Use the integrated webcam for model and desk tests. For a
-controlled walking demonstration, Windows 11 can expose a linked Android phone
-as a **connected camera** if the phone has Android 10+ and a compatible Link to
-Windows app. On the laptop, open Settings > Bluetooth & devices > Mobile devices,
-pair the phone, and enable **Use as connected camera**. Keep both on the same
-Wi-Fi network. Once enabled, the phone appears as a camera to PC applications.
-Run `python camera_probe.py` to list OpenCV camera indices; the tool reads a few
-frames and saves nothing. These requirements come from [Microsoft's connected
-camera instructions](https://support.microsoft.com/en-gb/windows/apps/phonelink/use-your-mobile-device-s-camera).
-If no camera appears, try `python camera_probe.py --backend dshow` and then
-`python camera_probe.py --backend msmf` in a normal local terminal. A failed
-camera probe in a remote or sandboxed execution environment does not establish
-that the physical webcam is absent.
+The team's primary camera is now a Logitech USB webcam labelled HD 1080p.
+The exact model has not been confirmed. The laptop's integrated camera is only
+for fallback desk tests; the Android phone displays the checkerboard or ArUco
+marker during calibration and ID checks. The fast decision loop runs on the
+laptop. The older Android APK is a separate on-phone warning prototype.
 
-The camera connection must be tested for frame dropouts and delay on the actual
-devices. If it drops, navigation must stop rather than use an old frame. A
-handheld phone changes camera angle, so a floor homography measured for one
-position will not give trustworthy distances after moving it. Secure the phone
-in one fixed orientation and recalibrate for that phone/mount before any metric
-distance or walking guidance claim. The phone is only the camera in this setup;
-the fast decision loop and speech still run on the laptop. The older Android
-APK is a separate on-phone warning prototype and does not stream frames to v3.
+Connect the USB webcam, close other apps using it, and run
+`python camera_probe.py --backend dshow` in a normal local terminal. Identify
+which reported index belongs to the Logitech webcam by opening a preview with
+`python marker_id_probe.py --camera N --backend dshow`, replacing `N` with the
+reported index. Do not assume the USB camera is index 0. If DShow cannot read
+it, try `--backend msmf`. A failed probe inside a sandbox does not prove the
+physical webcam is absent.
+
+Use the **same USB camera, resolution and fixed mount** for calibration and
+later tests. A camera mounted at a different angle or height needs its floor
+mapping checked again; calibration from the laptop's integrated camera must
+not be reused. Measure frame dropouts and delay on the actual device. If the
+camera stops providing fresh frames, navigation must stop.
 
 Run from this directory with Python 3.11+:
 
@@ -63,7 +59,7 @@ It forces the new DNN engine, rejects a missing segmentation output, and prints
 the output tensor shapes. A blank-frame run is only a compatibility check;
 it is not evidence of correct masks, object classes, or 700 ms speech latency.
 
-`python camera_vision_probe.py --camera 0 --backend dshow --frames 10` uses the
+`python camera_vision_probe.py --camera N --backend dshow --frames 10` uses the
 camera without saving images. It reports detection classes, segmentation-mask
 coverage of the lower L/C/R zones, and model inference time. It does **not**
 give voice directions: floor-distance calibration, route-position verification,
@@ -92,20 +88,20 @@ equal physical screen millimetres. Keep the whole checkerboard and white margin
 visible, avoid glare, and do not let the screen dim or rotate during captures.
 
 Use the **same camera and fixed mount** for every calibration and later run.
-For the laptop webcam and printed target, run
-`python calibrate_camera.py --camera 0 --backend dshow`.
+For a printed target, run
+`python calibrate_camera.py --camera N --backend dshow`.
 For the phone screen, run
-`python calibrate_camera.py --camera 0 --backend dshow --target phone_screen --square-mm MEASURED_VALUE`.
+`python calibrate_camera.py --camera N --backend dshow --target phone_screen --square-mm MEASURED_VALUE`.
+Use the USB webcam index found by `camera_probe.py` in place of `N`.
 Move and tilt the checkerboard across the camera view, pressing SPACE
 for 20 varied detected views. The tool saves intrinsics and distortion in
 ignored `calibration/camera.json` only if its RMS reprojection error is at most
 1.5 px; no calibration images are saved. After
 checking the actual target size with a ruler, set `verified_target_size` to `true` and write
-the mount description in that JSON. A different Android phone camera requires
-its own file and calibration, even if Windows exposes it as a webcam.
+the mount description in that JSON. A different webcam requires its own file and calibration.
 
 With a marker in front of the calibrated camera, run
-`python marker_pose_probe.py calibration/camera.json --camera 0 --backend dshow`.
+`python marker_pose_probe.py calibration/camera.json --camera N --backend dshow`.
 It reports marker IDs and marker-relative pose, with a reprojection check.
 Turn-left/right guidance still needs measured wall-marker orientations in the
 map, so this probe does not issue navigation instructions.
