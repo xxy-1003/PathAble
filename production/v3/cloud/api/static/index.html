@@ -3,24 +3,24 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>PathAble Cloud Slow-Loop & Facilities Dashboard</title>
+  <title>PathAble · Two-Loop Living Indoor Route & Decision Dashboard</title>
   <link rel="stylesheet" href="dashboard.css">
 </head>
 <body>
   <header class="header">
     <div class="header-content">
       <div class="logo">
-        <span class="badge">OpenCV AI Competition 2026</span>
-        <h1>PathAble · AWS Slow-Loop & Facilities Review</h1>
+        <span class="badge">OpenCV AI Competition 2026 · AWS Graviton</span>
+        <h1>PathAble · Physical Vision Inspection & Living Map</h1>
       </div>
       <div class="header-meta">
         <div class="meta-item">
-          <span class="meta-label">Map Version:</span>
+          <span class="meta-label">Shared Map:</span>
           <span id="map-version" class="meta-value">v1</span>
         </div>
         <div class="meta-item">
-          <span class="meta-label">Orchestrator:</span>
-          <span class="meta-value status-online">Active</span>
+          <span class="meta-label">Fast Loop (Laptop):</span>
+          <span class="meta-value status-online">Offline Ready (&le;700ms)</span>
         </div>
         <div class="meta-item">
           <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
@@ -30,67 +30,107 @@
   </header>
 
   <main class="container">
-    <!-- Top Row: Map Graph & Test Fixture Triggers -->
+    <!-- Top Row: Physical Vision Perception (Fast Loop) + Living Map -->
     <div class="grid grid-2">
-      <!-- 6-Node Prototype Map Card -->
+      <!-- FAST LOOP: Physical Perception & Local Agent -->
+      <section class="card card-accent">
+        <div class="card-header">
+          <div>
+            <h2>1. Fast Loop: Physical Camera & Perception Check</h2>
+            <small style="color:var(--text-secondary)">On-Device (Offline) &middot; OpenCV 5 DNN + 6-Frame Confirmation Buffer</small>
+          </div>
+          <span class="pill pill-success" id="agent-action-pill">CONTINUE</span>
+        </div>
+        <div class="card-body">
+          <!-- Simulated Camera Feed with YOLO & Zone Overlays -->
+          <div class="camera-viewport">
+            <div class="camera-overlay">
+              <span class="cam-badge" id="cam-status">Webcam 640x480 &middot; 10 FPS &middot; Node B</span>
+              <div id="obstacle-box" class="yolo-box hidden">
+                <span class="yolo-label" id="yolo-label">chair 0.85 &middot; table 0.82</span>
+              </div>
+              <div class="zones-overlay">
+                <div class="zone-col" id="zone-left"><span>LEFT (30%)</span><strong id="zone-left-val">clear</strong></div>
+                <div class="zone-col" id="zone-centre"><span>CENTRE (40%)</span><strong id="zone-centre-val">clear</strong></div>
+                <div class="zone-col" id="zone-right"><span>RIGHT (30%)</span><strong id="zone-right-val">clear</strong></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Physical Evidence & Decision Ring Buffer -->
+          <div class="inspection-metrics">
+            <div class="metric-box">
+              <span class="metric-label">USAC Floor Distance</span>
+              <strong id="metric-dist">&gt; 2.5 m (Far)</strong>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Zone Coverage</span>
+              <strong id="metric-coverage">0% (Lower 60%)</strong>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Ring Buffer (6/10)</span>
+              <div class="buffer-meter" id="buffer-meter">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Live Voice Guidance Bubble -->
+          <div class="speech-bubble" id="speech-bubble">
+            <span class="speaker-icon">&#128266;</span>
+            <div class="speech-text">
+              <strong id="voice-action">Voice Guidance (pyttsx3):</strong>
+              <p id="voice-message">Path is clear. Proceeding towards Lab D.</p>
+            </div>
+          </div>
+
+          <!-- Interactive Physical Simulation Trigger Buttons -->
+          <div class="step-buttons">
+            <button class="btn btn-primary" onclick="simulatePhysicalObstacleEncounter()">
+              &#9654; <strong>Run Physical Corridor Obstacle Check</strong>
+              <small>Simulates user approaching Junction B, camera detecting chairs over 6 frames, and rerouting</small>
+            </button>
+            <button class="btn btn-secondary" onclick="resetToClearCorridor()">
+              Reset Corridor to Clear
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Living Indoor Map (Dijkstra Graph) -->
       <section class="card">
         <div class="card-header">
-          <h2>FTSM 6-Node Living Map (Dijkstra Graph)</h2>
+          <div>
+            <h2>2. FTSM Living Indoor Route (Dijkstra Graph)</h2>
+            <small style="color:var(--text-secondary)">Entrance (A) &rarr; Junctions (B, C, E, F) &rarr; Lab (D)</small>
+          </div>
           <span class="pill" id="map-edges-status">6 Edges</span>
         </div>
         <div class="card-body">
           <div id="graph-container">
-            <svg id="map-svg" viewBox="0 0 600 280"></svg>
+            <svg id="map-svg" viewBox="0 0 600 250"></svg>
+          </div>
+          <div class="route-display">
+            <span><strong>Active User Route:</strong></span>
+            <span class="route-path" id="active-route-text">A &rarr; B &rarr; C &rarr; D (39 m)</span>
           </div>
           <div class="map-legend">
             <div class="legend-item"><span class="dot dot-open"></span> Passable (Open)</div>
+            <div class="legend-item"><span class="dot dot-active"></span> Active Route</div>
             <div class="legend-item"><span class="dot dot-blocked"></span> Blocked / Rerouting</div>
-            <div class="legend-item"><span class="dot dot-node"></span> Junction (ArUco ID)</div>
           </div>
-        </div>
-      </section>
-
-      <!-- Test Intake & Simulation Panel -->
-      <section class="card">
-        <div class="card-header">
-          <h2>Simulate Blocked-Edge Intake</h2>
-          <span class="pill">Judge Testbed</span>
-        </div>
-        <div class="card-body">
-          <p class="description">
-            Post pre-validated event fixtures directly to <code>POST /api/v1/events</code> to test state rules and Bedrock tie-breaking.
-          </p>
-          <div class="button-group">
-            <button class="btn btn-fixture" onclick="postFixture('temp')">
-              <strong>1. Temporary Obstacle</strong>
-              <small>Moving person on B-C (10m auto-expiry)</small>
-            </button>
-            <button class="btn btn-fixture" onclick="postFixture('uncertain')">
-              <strong>2. Uncertain Obstacle</strong>
-              <small>Static chair, 1st report (fail-safe hold)</small>
-            </button>
-            <button class="btn btn-fixture" onclick="postFixture('lasting_1')">
-              <strong>3. Lasting Furniture (Report 1)</strong>
-              <small>Table & chairs at T=0m (0.9m clearance)</small>
-            </button>
-            <button class="btn btn-fixture" onclick="postFixture('lasting_2')">
-              <strong>4. Lasting Furniture (Report 2)</strong>
-              <small>Table & chairs at T=22m &rarr; Creates Ticket</small>
-            </button>
-            <button class="btn btn-fixture" onclick="postFixture('conflict')">
-              <strong>5. Bedrock Tie-Breaker</strong>
-              <small>Chair with 1.6m clearance (conflict check)</small>
-            </button>
-          </div>
-          <div id="intake-result" class="result-box hidden"></div>
         </div>
       </section>
     </div>
 
-    <!-- Middle Row: Facilities Approval Review Queue -->
+    <!-- Facilities Review & Cloud Slow Loop -->
     <section class="card">
       <div class="card-header">
-        <h2>Facilities Approval Review Queue (Section 9.5)</h2>
+        <div>
+          <h2>3. Slow Loop: Facilities Human Approval Queue (Section 9.5)</h2>
+          <small style="color:var(--text-secondary)">Human-in-the-loop safety gate: an AI never closes a physical building corridor without staff sign-off</small>
+        </div>
         <span class="pill pill-warning" id="pending-ticket-count">0 Pending</span>
       </div>
       <div class="card-body">
@@ -100,10 +140,10 @@
       </div>
     </section>
 
-    <!-- Bottom Row: CloudWatch Decision Traces -->
+    <!-- CloudWatch Decision Traces -->
     <section class="card">
       <div class="card-header">
-        <h2>Live Decision Trace Stream (CloudWatch Audit Trail)</h2>
+        <h2>4. Live Decision Trace Stream (CloudWatch Audit Trail)</h2>
         <span class="pill" id="trace-count">0 Events</span>
       </div>
       <div class="card-body">
@@ -115,7 +155,7 @@
                 <th>Event ID</th>
                 <th>Component</th>
                 <th>Action</th>
-                <th>Trace Details</th>
+                <th>Decision Trace Details</th>
               </tr>
             </thead>
             <tbody id="traces-tbody">
@@ -128,7 +168,7 @@
   </main>
 
   <footer class="footer">
-    <p>PathAble Slow-Loop Agent · OpenCV 5 &middot; AWS Graviton &middot; MS 1184:2014 Compliance</p>
+    <p>PathAble: Vision that changes the next navigation decision &middot; OpenCV AI Competition 2026 &middot; MS 1184:2014 Compliance</p>
   </footer>
 
   <script src="dashboard.js"></script>
