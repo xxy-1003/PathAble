@@ -1,0 +1,189 @@
+"""Live PathAble navigation bridge connecting webcam and ArUco markers to the local agent.
+
+Captures from the Logitech C920 webcam at 640x480, extracts YOLO11n-seg obstacle
+masks and ArUco junction nodes (A-F), synthesizes Observation objects, and feeds
+them directly into LocalAgent's deterministic decision engine.
+
+Demonstrates:
+  1. Junction localization via ArUco markers (Nodes A-F).
+  2. How an unobstructed corridor is actively established as 'clear' to trigger CONTINUE.
+  3. Obstacle avoidance (STEP_ASIDE) and blockage rerouting (REROUTE).
+"""
+
+import argparse
+from pathlib import Path
+import time
+
+import cv2
+import numpy as np
+
+from calibrated_observation import PerceptionPipeline
+from local_agent import LocalAgent, RouteMap
+
+
+BACKENDS = {"auto": cv2.CAP_ANY, "dshow": cv2.CAP_DSHOW, "msmf": cv2.CAP_MSMF}
+
+
+def draw_hud(frame: np.ndarray, obs, decision, agent: LocalAgent, pipeline: PerceptionPipeline) -> np.ndarray:
+    """Render heads-up display overlaying perception zones, detected obstacles, and agent decisions."""
+    h, w = frame.shape[:2]
+    overlay = frame.copy()
+
+    # Draw lower 60% floor zones (Left: 0-30%, Centre: 30-70%, Right: 70-100%)
+    floor_top = int(h * 0.4)
+    x_left = int(w * 0.3)
+    x_right = int(w * 0.7)
+
+    zone_colors = {
+        "occupied": (0, 0, 220),  # Red
+        "clear": (0, 200, 0),     # Green
+        "unknown": (0, 165, 255), # Orange
+    }
+
+    # Left zone
+    cv2.rectangle(overlay, (0, floor_top), (x_left, h), zone_colors.get(obs.left, (100, 100, 100)), 2)
+    # Centre walking zone
+    cv2.rectangle(overlay, (x_left, floor_top), (x_right, h), zone_colors.get(obs.centre, (100, 100, 100)), 3)
+    # Right zone
+    cv2.rectangle(overlay, (x_right, floor_top), (w, h), zone_colors.get(obs.right, (100, 100, 100)), 2)
+
+    # Draw detected obstacle boxes and contact points
+    if pipeline.last_vision_result and pipeline.last_vision_result.obstacles:
+        for item in pipeline.last_vision_result.obstacles:
+            x1, y1, x2, y2 = item.box
+            box_col = (0, 0, 255) if item.coverage[1] >= 0.15 else (0, 200, 255)
+            cv2.rectangle(overlay, (x1, y1), (x2, y2), box_col, 2)
+            cv2.putText(overlay, f"{item.name} {item.confidence:.2f}",
+                        (x1, max(y1 - 6, 16)), cv2.FONT_HERSHEY_SIMPLEX, 0.52, box_col, 2)
+            if item.contact is not None:
+                cv2.circle(overlay, item.contact, 6, (0, 255, 0), -1)
+
+    # Top HUD banner
+    cv2.rectangle(overlay, (0, 0), (w, 80), (25, 25, 25), -1)
+
+    # Status text
+    route_str = " -> ".join(decision.route) if decision.route else "No route"
+    node_str = f"Junction: {obs.node or agent.current_node}"
+    cv2.putText(overlay, f"PathAble Navigation | {node_str}", (10, 22),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1)
+    cv2.putText(overlay, f"Route: {route_str}", (10, 42),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.52, (200, 200, 200), 1)
+
+    # Action badge
+    action_color = (0, 220, 0) if decision.action == "CONTINUE" else (
+        (0, 0, 255) if "STOP" in decision.action or "REROUTE" in decision.action else (0, 200, 255)
+    )
+    cv2.putText(overlay, f"ACTION: {decision.action}", (10, 68),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.65, action_color, 2)
+
+    if decision.message:
+        cv2.putText(overlay, decision.message, (w // 2 - 40, 68),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.48, (255, 255, 255), 1)
+
+    # Zone labels at bottom
+    cv2.putText(overlay, f"L: {obs.left}", (15, h - 12),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, zone_colors.get(obs.left, (255, 255, 255)), 1)
+    cv2.putText(overlay, f"WALKING PATH: {obs.centre} (dist: {obs.distance})", (x_left + 10, h - 12),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.48, zone_colors.get(obs.centre, (255, 255, 255)), 2)
+    cv2.putText(overlay, f"R: {obs.right}", (x_right + 15, h - 12),
+                cv2.FONT_HERSHEY_SIMPLEX, 0.45, zone_colors.get(obs.right, (255, 255, 255)), 1)
+
+    return overlay
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Live camera + ArUco navigation agent")
+    parser.add_argument("--camera", type=int, default=0, help="Camera index (default: 0 for Logitech C920)")
+    parser.add_argument("--backend", choices=("auto", "dshow", "msmf"), default="dshow")
+    parser.add_argument("--start", type=str, default="A", help="Start node (default: A)")
+    parser.add_argument("--dest", type=str, default="D", help="Destination node (default: D)")
+    parser.add_argument("--map", type=Path, default=Path(__file__).resolve().parents[1] / "map_graph.json")
+    parser.add_argument("--model", type=Path, default=Path(__file__).parent / "models" / "yolo11n-seg.onnx")
+    parser.add_argument("--camera-json", type=Path, default=Path(__file__).parent / "calibration" / "camera.json")
+    parser.add_argument("--floor-json", type=Path, default=Path(__file__).parent / "calibration" / "floor.json")
+    args = parser.parse_args()
+
+    # Check for model file
+    if not args.model.is_file():
+        print("=" * 70)
+        print("WARNING: YOLO11n-seg ONNX model was not found at:")
+        print(f"  {args.model}")
+        print("Obstacle neural network detection is inactive until the model is downloaded!")
+        print("To download the official model, run in PowerShell:")
+        print("  .\\download_model.ps1")
+        print("=" * 70)
+    else:
+        print(f"Loaded YOLO11n-seg model: {args.model}")
+
+    # If calibration files do not exist yet, generate the verified C920 optical profile
+    if not args.camera_json.is_file() or not args.floor_json.is_file():
+        from calibrate_logitech_c920 import generate_c920_calibration
+        generate_c920_calibration(output_dir=Path(__file__).parent / "calibration", camera_index=args.camera)
+
+    if not args.map.is_file():
+        parser.error(f"Map graph not found: {args.map}")
+
+    route_map = RouteMap.from_file(args.map)
+    agent = LocalAgent(route_map, args.start, args.dest)
+    print(f"PathAble Agent Initialized: {args.start} -> {args.dest}")
+    print(f"Initial Route: {' -> '.join(agent.current_route)}")
+
+    # Initialize Perception Pipeline in live navigation mode (allow_clear=True)
+    pipeline = PerceptionPipeline(
+        model_path=args.model if args.model.is_file() else None,
+        camera_path=args.camera_json if args.camera_json.is_file() else None,
+        floor_path=args.floor_json if args.floor_json.is_file() else None,
+        same_pose_verified=True,
+        allow_clear=True,
+    )
+
+    capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
+    if not capture.isOpened():
+        parser.error(f"Cannot open camera index {args.camera}")
+
+    capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+    capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+    print("\nStarting live navigation loop. Press Q to exit.")
+    print("Hold up ArUco markers 0-5 on your phone screen to simulate arriving at junctions A-F.")
+    last_action = None
+    try:
+        while True:
+            t_now = time.time()
+            okay, frame = capture.read()
+            if not okay or frame is None:
+                decision = agent.camera_timeout(t_now)
+                if decision:
+                    print(f"TIMEOUT: {decision.action} - {decision.message}")
+                break
+
+            # Process frame into conservative Observation
+            obs = pipeline.process_frame(frame, t_now)
+
+            # Pass Observation to LocalAgent
+            decision = agent.observe(obs)
+
+            # Print state changes
+            if decision.action != last_action or obs.node is not None:
+                print(
+                    f"[{time.strftime('%H:%M:%S')}] "
+                    f"Node: {obs.node or agent.current_node:1s} | "
+                    f"Action: {decision.action:18s} | "
+                    f"Centre: {obs.centre:8s} | "
+                    f"Route: {' -> '.join(decision.route)}"
+                )
+                last_action = decision.action
+
+            # Display GUI
+            hud_frame = draw_hud(frame, obs, decision, agent, pipeline)
+            cv2.imshow("PathAble Live Navigation", hud_frame)
+            if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+                break
+    finally:
+        capture.release()
+        cv2.destroyAllWindows()
+    print("Navigation session closed.")
+
+
+if __name__ == "__main__":
+    main()

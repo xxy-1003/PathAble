@@ -1,4 +1,4 @@
-"""YOLO11n-seg decoding for camera experiments; no navigation guidance here.
+"""YOLO11n-seg decoding and ArUco junction localisation for PathAble.
 
 The model must be a raw (NMS-free) Ultralytics COCO segmentation ONNX export.
 OpenCV 5's new DNN engine is forced so a classic-engine fallback is visible.
@@ -25,6 +25,15 @@ CLASSES = {
     60: "dining table",
 }
 
+NODE_NAMES = {
+    0: "A",
+    1: "B",
+    2: "C",
+    3: "D",
+    4: "E",
+    5: "F",
+}
+
 
 @dataclass(frozen=True)
 class Obstacle:
@@ -46,8 +55,45 @@ class VisionResult:
         return tuple(value >= 0.15 for value in self.coverage)
 
 
+@dataclass(frozen=True)
+class MarkerDetection:
+    marker_id: int
+    node: str
+    corners: tuple[tuple[float, float], ...]
+
+
+class MarkerLocalizer:
+    """Detects ArUco junction markers (DICT_4X4_50) corresponding to nodes A-F."""
+
+    def __init__(self, dictionary_id: int = cv2.aruco.DICT_4X4_50):
+        self.dictionary = cv2.aruco.getPredefinedDictionary(dictionary_id)
+        self.detector = cv2.aruco.ArucoDetector(self.dictionary)
+
+    def detect(self, frame: np.ndarray) -> tuple[MarkerDetection, ...]:
+        if frame is None or not isinstance(frame, np.ndarray) or frame.ndim not in (2, 3):
+            return ()
+        if frame.size == 0:
+            return ()
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+        corners, ids, _ = self.detector.detectMarkers(gray)
+        if ids is None or len(ids) == 0:
+            return ()
+        results = []
+        for marker_corners, marker_id in zip(corners, ids.flatten()):
+            mid = int(marker_id)
+            if mid in NODE_NAMES:
+                c_pts = tuple(
+                    (float(pt[0]), float(pt[1]))
+                    for pt in marker_corners.reshape(4, 2)
+                )
+                results.append(MarkerDetection(marker_id=mid, node=NODE_NAMES[mid], corners=c_pts))
+        return tuple(results)
+
+
 def zone_coverage(mask: np.ndarray) -> tuple[float, float, float]:
     """Mask fractions in left, centre, right of the lower 60% of a frame."""
+    if mask is None or not isinstance(mask, np.ndarray) or mask.ndim != 2 or mask.size == 0:
+        return (0.0, 0.0, 0.0)
     height, width = mask.shape
     floor = mask[int(height * 0.4):]
     left_end = int(width * 0.3)
