@@ -5,12 +5,21 @@ request.
 - Approve: Closes the edge and opens a maintenance ticket in DynamoDB.
 - Reject: Reopens the edge.
 - Fail-safe: If nobody responds, edge stays blocked.
+
+Safety additions:
+- Duplicate-ticket prevention: only one PENDING ticket per edge at a time.
+- Ticket expiry escalation: if 24 hours pass with no review, the ticket is
+  marked EXPIRED and the fail-safe temporary block is automatically extended.
+- Optional JSON-file persistence so tickets survive server restarts.
 """
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import json
 import logging
+import os
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 from ..schema.models import ApprovalTicket, EdgeRef, HumanReviewAction, TicketStatus
@@ -19,14 +28,28 @@ from .map_sync import MapSyncManager
 
 logger = logging.getLogger("pathable.cloud.human_approval")
 
+# How long facilities staff have to review before auto-escalation
+REVIEW_WINDOW_HOURS = 24
+
 
 class HumanApprovalManager:
     """Manages human review tickets and synchronizes outcomes with the shared map."""
 
-    def __init__(self, map_sync: MapSyncManager):
+    def __init__(
+        self,
+        map_sync: MapSyncManager,
+        persistence_path: Optional[str | Path] = None,
+    ):
         self.map_sync = map_sync
         self._tickets: Dict[str, ApprovalTicket] = {}
         self._counter = 16  # Matches proposal trace starting around T-17
+        self._persistence_path: Optional[Path] = (
+            Path(persistence_path) if persistence_path else None
+        )
+
+        # Restore tickets from disk if available
+        if self._persistence_path:
+            self._load_tickets()
 
     def create_ticket(
         self,
@@ -37,7 +60,22 @@ class HumanApprovalManager:
         justification: str,
         keyframes: Optional[List[str]] = None,
     ) -> ApprovalTicket:
-        """Creates a pending review ticket for facilities staff."""
+        """Creates a pending review ticket for facilities staff.
+
+        Raises ``ValueError`` if a PENDING ticket already exists for this edge
+        (duplicate-ticket safety guard).
+        """
+        # --- Duplicate-ticket prevention ---
+        for existing in self._tickets.values():
+            if (
+                existing.status == TicketStatus.PENDING
+                and existing.edge.edge_key == edge.edge_key
+            ):
+                raise ValueError(
+                    f"PENDING ticket {existing.ticket_id} already exists for edge "
+                    f"{edge.edge_key}; resolve it before creating a new one"
+                )
+
         self._counter += 1
         ticket_id = f"T-{self._counter}"
 
@@ -64,6 +102,7 @@ class HumanApprovalManager:
             ticket_id,
             edge.edge_key,
         )
+        self._save_tickets()
         return ticket
 
     def review_ticket(
@@ -95,6 +134,7 @@ class HumanApprovalManager:
                 ticket.edge.from_node, ticket.edge.to_node, ticket_id
             )
             logger.info("Ticket %s APPROVED by %s; map version bumped to %d", ticket_id, reviewer_id, new_version)
+            self._save_tickets()
             return ticket, new_version
 
         elif normalized_action == "REJECT":
@@ -108,6 +148,7 @@ class HumanApprovalManager:
                 ticket.edge.from_node, ticket.edge.to_node, reason=f"Facilities rejected ticket {ticket_id}"
             )
             logger.info("Ticket %s REJECTED by %s; edge reopened; map version bumped to %d", ticket_id, reviewer_id, new_version)
+            self._save_tickets()
             return ticket, new_version
 
         else:
@@ -122,3 +163,100 @@ class HumanApprovalManager:
             tickets = [t for t in tickets if t.status == status]
         tickets.sort(key=lambda t: t.created_at, reverse=True)
         return tickets
+
+    # ---- Ticket expiry escalation ----
+
+    def check_ticket_expiries(
+        self, now: Optional[datetime] = None
+    ) -> List[ApprovalTicket]:
+        """Auto-escalate PENDING tickets that exceed the review window.
+
+        For each expired ticket the status is set to EXPIRED and a fresh
+        24-hour temporary block is applied to keep the edge safely blocked.
+
+        Returns the list of tickets that were escalated in this call.
+        """
+        current_time = now or datetime.now(timezone.utc)
+        deadline = current_time - timedelta(hours=REVIEW_WINDOW_HOURS)
+        escalated: List[ApprovalTicket] = []
+
+        for ticket in list(self._tickets.values()):
+            if ticket.status != TicketStatus.PENDING:
+                continue
+            if ticket.created_at <= deadline:
+                ticket.status = TicketStatus.EXPIRED
+                ticket.resolved_at = current_time
+                ticket.resolution_notes = (
+                    "Auto-escalated: no response within 24 hours"
+                )
+                # Re-apply fail-safe block so the edge stays closed
+                self.map_sync.apply_temporary_block(
+                    ticket.edge.from_node,
+                    ticket.edge.to_node,
+                    expiry_minutes=1440,
+                    now=current_time,
+                )
+                escalated.append(ticket)
+                logger.warning(
+                    "Ticket %s expired without review; fail-safe block extended "
+                    "for edge %s",
+                    ticket.ticket_id,
+                    ticket.edge.edge_key,
+                )
+
+        if escalated:
+            self._save_tickets()
+        return escalated
+
+    # ---- Persistence helpers ----
+
+    def _save_tickets(self) -> None:
+        """Persist all tickets to a JSON file so they survive restarts."""
+        if not self._persistence_path:
+            return
+        data = {
+            "counter": self._counter,
+            "tickets": {
+                tid: t.model_dump(mode="json") for tid, t in self._tickets.items()
+            },
+        }
+        tmp_path = self._persistence_path.with_suffix(".tmp")
+        try:
+            self._persistence_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2)
+            os.replace(str(tmp_path), str(self._persistence_path))
+            logger.info(
+                "Tickets persisted to %s (%d tickets)",
+                self._persistence_path,
+                len(self._tickets),
+            )
+        except OSError:
+            logger.warning(
+                "Failed to persist tickets to %s",
+                self._persistence_path,
+                exc_info=True,
+            )
+
+    def _load_tickets(self) -> None:
+        """Restore tickets from a persisted JSON file."""
+        if not self._persistence_path or not self._persistence_path.exists():
+            return
+        try:
+            with open(self._persistence_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self._counter = data.get("counter", self._counter)
+            for tid, tdata in data.get("tickets", {}).items():
+                self._tickets[tid] = ApprovalTicket(**tdata)
+            logger.info(
+                "Tickets restored from %s (%d tickets, counter=%d)",
+                self._persistence_path,
+                len(self._tickets),
+                self._counter,
+            )
+        except (json.JSONDecodeError, KeyError, ValueError):
+            logger.warning(
+                "Corrupted tickets file %s; starting with empty tickets",
+                self._persistence_path,
+                exc_info=True,
+            )

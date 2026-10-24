@@ -2,6 +2,10 @@
 
 Maintains authoritative shared map state, version counter, temporary expiry timers,
 and junction synchronization endpoints.
+
+Persistence: when ``persistence_path`` is supplied the full map state is written to
+a JSON file after every version bump and restored on startup, so blocked-edge state
+survives server / Lambda restarts.
 """
 
 from __future__ import annotations
@@ -10,6 +14,7 @@ import copy
 from datetime import datetime, timezone
 import json
 import logging
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -41,7 +46,20 @@ DEFAULT_MAP_DATA = {
 class MapSyncManager:
     """Manages authoritative map versioning and synchronisation with edge devices."""
 
-    def __init__(self, initial_map_path: Optional[str | Path] = None):
+    def __init__(
+        self,
+        initial_map_path: Optional[str | Path] = None,
+        persistence_path: Optional[str | Path] = None,
+    ):
+        self._persistence_path: Optional[Path] = (
+            Path(persistence_path) if persistence_path else None
+        )
+
+        # Try restoring persisted state first
+        if self._persistence_path and self._persistence_path.exists():
+            if self._load_state():
+                return  # Successfully restored — skip default init
+
         if initial_map_path and Path(initial_map_path).exists():
             with open(initial_map_path, "r", encoding="utf-8") as f:
                 self._map_data = json.load(f)
@@ -95,7 +113,67 @@ class MapSyncManager:
         self._map_data["version"] = self.version
         self.last_updated_at = datetime.now(timezone.utc)
         logger.info("Map version bumped to %d (reason: %s)", self.version, reason)
+        self._save_state()
         return self.version
+
+    # ---- Persistence helpers ----
+
+    def _save_state(self) -> None:
+        """Atomically persist full map state to JSON so it survives restarts."""
+        if not self._persistence_path:
+            return
+        state = {
+            "version": self.version,
+            "nodes": self.nodes,
+            "edges": self.edges,
+            "temporary_expiries": {
+                k: v.isoformat() for k, v in self._temporary_expiries.items()
+            },
+            "edge_metadata": self._edge_metadata,
+            "last_updated_at": self.last_updated_at.isoformat(),
+        }
+        tmp_path = self._persistence_path.with_suffix(".tmp")
+        try:
+            self._persistence_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(state, f, indent=2)
+            # Atomic replace (os.replace is atomic on same filesystem)
+            os.replace(str(tmp_path), str(self._persistence_path))
+            logger.info("Map state persisted to %s (version %d)", self._persistence_path, self.version)
+        except OSError:
+            logger.warning("Failed to persist map state to %s", self._persistence_path, exc_info=True)
+
+    def _load_state(self) -> bool:
+        """Restore map state from a persisted JSON file.  Returns True on success."""
+        if not self._persistence_path or not self._persistence_path.exists():
+            return False
+        try:
+            with open(self._persistence_path, "r", encoding="utf-8") as f:
+                state = json.load(f)
+            self.version = state["version"]
+            self.nodes = state["nodes"]
+            self.edges = state["edges"]
+            self._map_data = {"version": self.version, "nodes": self.nodes, "edges": self.edges}
+            self._temporary_expiries = {
+                k: datetime.fromisoformat(v)
+                for k, v in state.get("temporary_expiries", {}).items()
+            }
+            self._edge_metadata = state.get("edge_metadata", {})
+            self.last_updated_at = datetime.fromisoformat(state["last_updated_at"])
+            logger.info(
+                "Map state restored from %s (version %d, %d active temporary blocks)",
+                self._persistence_path,
+                self.version,
+                len(self._temporary_expiries),
+            )
+            return True
+        except (json.JSONDecodeError, KeyError, ValueError):
+            logger.warning(
+                "Corrupted map persistence file %s; falling back to defaults",
+                self._persistence_path,
+                exc_info=True,
+            )
+            return False
 
     def apply_temporary_block(
         self,
