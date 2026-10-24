@@ -1,0 +1,24 @@
+# PathAble v3 — Python dependencies
+# Install with: pip install -r requirements.txt
+#
+# Python 3.11+ required (tested on 3.12 and 3.14).
+# OpenCV 5 is required for the DNN engine, USAC_MAGSAC homography,
+# ArucoDetector API, and SOLVEPNP_IPPE_SQUARE.
+
+# Core computer vision (OpenCV 5)
+opencv-python>=5.0.0
+
+# Numerical computation
+numpy>=1.26.0
+
+# Graph routing (Dijkstra shortest path)
+networkx>=3.4
+
+# Offline text-to-speech (voice guidance layer)
+pyttsx3>=2.90
+
+# Testing framework
+pytest>=8.0
+
+# Optional: Windows native SAPI fallback (usually pre-installed)
+# pywin32>=306
