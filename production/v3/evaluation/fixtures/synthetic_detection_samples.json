@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "fixture_type": "SYNTHETIC_FIXTURE_NOT_MEASURED_TRIAL",
+    "description": "Synthetic obstacle detection samples within 2.5m range for evaluation harness verification"
+  },
+  "samples": [
+    {"frame_id": 101, "distance_m": 1.2, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 102, "distance_m": 1.5, "true_positives": 2, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 103, "distance_m": 2.1, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 104, "distance_m": 0.9, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 105, "distance_m": 2.4, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 106, "distance_m": 1.8, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 107, "distance_m": 1.1, "true_positives": 1, "false_positives": 1, "false_negatives": 0},
+    {"frame_id": 108, "distance_m": 2.0, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 109, "distance_m": 1.4, "true_positives": 1, "false_positives": 0, "false_negatives": 0},
+    {"frame_id": 110, "distance_m": 2.3, "true_positives": 1, "false_positives": 0, "false_negatives": 1}
+  ]
+}
