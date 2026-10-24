@@ -39,6 +39,9 @@ No visually impaired participants are involved in this prototype phase (schedule
 
 Every trial record is serialized as a JSON object adhering to the schema below:
 
+The values below illustrate field structure only; they are not measured results.
+Collect the actual distance, speech latency, and video timecodes for each run.
+
 ```json
 {
   "trial_id": "SCEN-02_T03",
@@ -54,6 +57,7 @@ Every trial record is serialized as a JSON object adhering to the schema below:
     "distance_ground_truth_m": 1.45,
     "occupied_zones": ["centre"],
     "moving": false,
+    "safety_critical": false,
     "acceptable_actions": ["STEP_ASIDE"],
     "unacceptable_actions": ["CONTINUE"]
   },

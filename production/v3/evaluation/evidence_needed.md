@@ -1,7 +1,7 @@
 # PathAble: Evidence Needed from Teammates and Physical Trials
 **Checklist for Final Devpost Submission Preparation (Person 5)**
 
-As Person 5 (Evaluation and Submission Evidence), the evaluation framework, metric calculation engine, synthetic fixtures, scenario protocols, report outline, and video storyboard are complete and passing all unit tests.
+Person 5 has an evaluation framework, metric calculations, synthetic self-check fixtures, scenario protocols, a report outline, and a conditional video storyboard. These are preparation artifacts; physical and AWS results still require recorded evidence and review.
 
 To transition from synthetic verification to final measured competition submission evidence, the following specific deliverables are required from teammates and physical corridor trials:
 
@@ -32,7 +32,7 @@ To transition from synthetic verification to final measured competition submissi
 | **Live Intake & Privacy Audit** | API Gateway endpoint accepting blocked-edge JSON; verification that faces in S3 keyframes are blurred. | Proves privacy compliance in Section 9.1. |
 | **Decision Trace CloudWatch Logs** | Complete CloudWatch log stream for a staged event showing `detect`, `motion`, `clearance`, and `history` tool outputs. | Feeds the Section 11 decision trace in the technical report. |
 | **Bedrock Justification Samples** | JSON output from Amazon Nova Lite tie-breaker showing 2-sentence written justifications. | Proves Agentic Vision Award qualification. |
-| **Human Approval Evidence** | Screen recording or screenshots of the facilities approval web page and resulting DynamoDB map version update (v13 $\rightarrow$ v14). | Proves human-in-the-loop governance. |
+| **Human Approval Evidence** | Screen recording or screenshots of an authenticated facilities review and the actual before/after shared-map version, if deployed. | Verifies human approval and map synchronization when available. |
 
 ---
 

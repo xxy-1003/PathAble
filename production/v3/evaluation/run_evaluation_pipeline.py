@@ -1,4 +1,4 @@
-"""PathAble Evaluation Pipeline Runner (Person 5).
+"""PathAble Evaluation Pipeline Runner (Person 5, evidence gated).
 
 Loads scenario trials, route tests, latency records, cloud sequences, and COOL benchmark data.
 Computes and formats the official evaluation metrics report for the technical paper and submission.
@@ -7,10 +7,11 @@ Computes and formats the official evaluation metrics report for the technical pa
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 from pathlib import Path
-import sys
 
+from measured_inputs import DATASETS, FIXTURE_FILES, load_measured_inputs
 from metrics import (
     calculate_detection_metrics,
     calculate_decision_accuracy,
@@ -24,120 +25,112 @@ from metrics import (
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
-def run_pipeline(mode: str = "synthetic", output_file: Path | None = None) -> int:
+def load_inputs(mode: str, data_dir: Path | None) -> tuple[dict, dict]:
+    if mode == "measured":
+        if data_dir is None:
+            raise ValueError("--mode measured requires --data-dir with recorded evidence and manifest.json")
+        return load_measured_inputs(data_dir, FIXTURES_DIR)
+    if mode != "synthetic" or data_dir is not None:
+        raise ValueError("Synthetic mode uses bundled fixtures and does not accept --data-dir")
+    loaded = {}
+    for name, filename in FIXTURE_FILES.items():
+        payload = json.loads((FIXTURES_DIR / filename).read_text(encoding="utf-8"))
+        loaded[name] = payload[DATASETS[name][0]]
+    return {}, loaded
+
+
+def run_pipeline(mode: str = "synthetic", output_file: Path | None = None,
+                 data_dir: Path | None = None) -> str:
+    manifest, data = load_inputs(mode, data_dir)
     origin = "PHYSICAL_MEASURED" if mode == "measured" else "SYNTHETIC_FIXTURE"
+    report_date = datetime.now(timezone.utc).date().isoformat()
+    if mode == "synthetic":
+        lines = [
+            "# PathAble v3: Synthetic Evaluation Self-Check", "",
+            "**Data Status**: `SYNTHETIC_FIXTURE`", f"**Report Date (UTC)**: {report_date}", "",
+            "> Pipeline self-check only. These are generated fixtures. Performance values",
+            "> and pass/fail claims are deliberately omitted from this report. Do not use it",
+            "> as competition or demo evidence.", "",
+            "| Fixture | Records processed |", "| :--- | ---: |",
+        ]
+        lines.extend(f"| {name} | {len(records)} |" for name, records in data.items())
+        report = "\n".join(lines) + "\n"
+        if output_file is not None:
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            output_file.write_text(report, encoding="utf-8")
+        return report
 
-    print("=" * 78)
-    print(f" PathAble v3: Evaluation & Submission Evidence Pipeline")
-    print(f" Data Origin Mode: {origin}")
-    if origin == "SYNTHETIC_FIXTURE":
-        print(" [WARNING] Running on SYNTHETIC FIXTURES for pre-integration verification.")
-        print("           Never submit synthetic fixtures as physically measured trials.")
-    print("=" * 78)
+    det_res = calculate_detection_metrics(data["detection"], data_origin=origin)
+    scen_res = calculate_decision_accuracy(data["scenarios"], data_origin=origin)
+    route_res = calculate_route_completion(data["routes"], data_origin=origin)
+    lat_res = calculate_latency_percentiles(data["latency"], data_origin=origin)
+    esc_res = calculate_escalation_accuracy(data["scenarios"], data_origin=origin)
+    cloud_res = calculate_cloud_metrics(data["cloud"], data_origin=origin)
+    cool_res = calculate_cool_performance(data["cool"], data_origin=origin)
 
-    # 1. Detection
-    det_path = FIXTURES_DIR / "synthetic_detection_samples.json"
-    with open(det_path, encoding="utf-8") as f:
-        det_data = json.load(f)
-    det_res = calculate_detection_metrics(det_data.get("samples", []), data_origin=origin)
-
-    # 2. Decision Accuracy (80 Scenario Trials)
-    scen_path = FIXTURES_DIR / "synthetic_scenario_trials.json"
-    with open(scen_path, encoding="utf-8") as f:
-        scen_data = json.load(f)
-    trials = scen_data.get("trials", [])
-    scen_res = calculate_decision_accuracy(trials, data_origin=origin)
-
-    # 3. Route Completion (20 Runs)
-    route_path = FIXTURES_DIR / "synthetic_route_trials.json"
-    with open(route_path, encoding="utf-8") as f:
-        route_data = json.load(f)
-    runs = route_data.get("runs", [])
-    route_res = calculate_route_completion(runs, data_origin=origin)
-
-    # 4. Latency Percentiles
-    lat_path = FIXTURES_DIR / "synthetic_latency_samples.json"
-    with open(lat_path, encoding="utf-8") as f:
-        lat_data = json.load(f)
-    lat_samples = lat_data.get("samples_ms", [])
-    lat_res = calculate_latency_percentiles(lat_samples, data_origin=origin)
-
-    # 5. Escalation Accuracy
-    esc_res = calculate_escalation_accuracy(trials, data_origin=origin)
-
-    # 6. Cloud Classification
-    cloud_path = FIXTURES_DIR / "synthetic_cloud_sequences.json"
-    with open(cloud_path, encoding="utf-8") as f:
-        cloud_data = json.load(f)
-    seqs = cloud_data.get("sequences", [])
-    cloud_res = calculate_cloud_metrics(seqs, data_origin=origin)
-
-    # 7. COOL Benchmark
-    cool_path = FIXTURES_DIR / "synthetic_cool_benchmarks.json"
-    with open(cool_path, encoding="utf-8") as f:
-        cool_data = json.load(f)
-    cool_configs = cool_data.get("configurations", {})
-    cool_res = calculate_cool_performance(cool_configs, data_origin=origin)
-
-    # Build Markdown Summary
+    collection = manifest["collection"]
+    review = manifest["evidence_review"]
     report_lines = [
         "# PathAble v3: Evaluation Results & Metrics Summary",
         "",
         f"**Data Status**: `{origin}`",
-        f"**Evaluation Date**: 2026-10-24",
+        f"**Report Date (UTC)**: {report_date}",
+        f"**Collection ID**: `{collection['collection_id']}`",
+        f"**Site**: {collection['site']}",
+        f"**Recorded at (UTC)**: {collection['recorded_at_utc']}",
+        f"**Recorder**: {collection['recorded_by']}",
+        f"**Evidence reviewed by**: {review['reviewed_by']} at {review['reviewed_at_utc']}",
+        "",
+        "> Input and source-file hashes match the measured manifest. The named reviewer",
+        "> attests that source files, labels, and benchmark runs were inspected. Confirm",
+        "> consent and trial protocol before publishing participant results.",
         "",
     ]
-
-    if origin == "SYNTHETIC_FIXTURE":
-        report_lines.extend([
-            "> [!IMPORTANT]",
-            "> **Pre-integration Verification Only**: The results below are computed from synthetic fixtures",
-            "> to validate metric pipelines. Measured physical trial evidence will be populated after",
-            "> branches are integrated and corridor testing is conducted.",
-            "",
-        ])
 
     report_lines.extend([
         "## Summary Scorecard against Proposal Targets",
         "",
-        "| Metric | Proposal Target | Evaluated Value | Status |",
+        "| Metric | Proposal Target | Measured Value | Status |",
         "| :--- | :---: | :---: | :---: |",
-        f"| Obstacle Detection Recall | $\\ge 0.90$ | {det_res.get('recall', 0):.2f} | {'PASS' if det_res.get('target_met') else 'FAIL'} |",
-        f"| Obstacle Detection Precision | $\\ge 0.85$ | {det_res.get('precision', 0):.2f} | {'PASS' if det_res.get('target_met') else 'FAIL'} |",
-        f"| Decision Accuracy (80 trials) | $\\ge 85\\%$ | {scen_res.get('accuracy_pct', 0)}% | {'PASS' if scen_res.get('target_met') else 'FAIL'} |",
-        f"| Route Completion (20 runs) | $\\ge 90\\%$ | {route_res.get('completion_rate_pct', 0)}% | {'PASS' if route_res.get('target_met') else 'FAIL'} |",
-        f"| Collisions | 0 | {route_res.get('collisions', 0)} | {'PASS' if route_res.get('collisions', 0) == 0 else 'FAIL'} |",
-        f"| End-to-end Latency (p95) | $\\le 700\\text{{ ms}}$ | {lat_res.get('p95_ms', 0)} ms | {'PASS' if lat_res.get('target_met') else 'FAIL'} |",
-        f"| Escalation Recall | $\\ge 0.90$ | {esc_res.get('recall', 0):.2f} | {'PASS' if esc_res.get('target_met') else 'FAIL'} |",
-        f"| Cloud Classification Accuracy | $\\ge 80\\%$ | {cloud_res.get('accuracy_pct', 0)}% | {'PASS' if cloud_res.get('target_met') else 'FAIL'} |",
-        f"| False Escalations to Facilities | $\\le 1 \\text{{ in }} 30$ | {cloud_res.get('false_escalations_to_facilities', 0)} | {'PASS' if cloud_res.get('target_met') else 'FAIL'} |",
-        f"| COOL Speedup (Graviton COOL vs Stock) | Report gain | {cool_res.get('speedup_a_vs_b_graviton', 1.0)}x | MEASURED |",
+        f"| Obstacle Detection Recall ({det_res['sample_count']} samples) | $\\ge 0.90$ | {det_res['recall']:.2f} | {'PASS' if det_res['recall'] >= .90 else 'FAIL'} |",
+        f"| Obstacle Detection Precision | $\\ge 0.85$ | {det_res['precision']:.2f} | {'PASS' if det_res['precision'] >= .85 else 'FAIL'} |",
+        f"| Decision Accuracy ({scen_res['total_trials']} trials) | $\\ge 85\\%$ | {scen_res['accuracy_pct']}% | {'PASS' if scen_res['target_met'] else 'FAIL'} |",
+        f"| Route Completion ({route_res['total_runs']} runs) | $\\ge 90\\%$ | {route_res['completion_rate_pct']}% | {'PASS' if route_res['target_met'] else 'FAIL'} |",
+        f"| Collisions | 0 | {route_res['collisions']} | {'PASS' if route_res['collisions'] == 0 else 'FAIL'} |",
+        f"| End-to-end Latency p95 ({lat_res['sample_count']} samples) | $\\le 700\\text{{ ms}}$ | {lat_res['p95_ms']} ms | {'PASS' if lat_res['target_met'] else 'FAIL'} |",
+        f"| Escalation Recall | $\\ge 0.90$ | {esc_res['recall']:.2f} | {'PASS' if esc_res['target_met'] else 'FAIL'} |",
+        f"| Cloud Classification ({cloud_res['total_sequences']} sequences) | $\\ge 80\\%$ | {cloud_res['accuracy_pct']}% | {'PASS' if cloud_res['accuracy_pct'] >= 80 else 'FAIL'} |",
+        f"| False Escalations to Facilities | $\\le 1 \\text{{ in }} 30$ | {cloud_res['false_escalations_to_facilities']} | {'PASS' if cloud_res['false_escalations_to_facilities'] <= 1 else 'FAIL'} |",
         "",
-        "## COOL on AWS Graviton Comparative Performance",
+        "## COOL Comparison (Review Raw Benchmark Runs Before Citing)",
         "",
         "| Configuration | Median Latency (ms) | p95 Latency (ms) | Throughput (FPS) | Cost / 1k Frames (USD) |",
         "| :--- | :---: | :---: | :---: | :---: |",
     ])
 
-    for cfg_key, cfg in cool_res.get("configurations", {}).items():
+    for cfg in cool_res["configurations"].values():
         report_lines.append(
-            f"| {cfg.get('name')} | {cfg.get('median_latency_ms')} | {cfg.get('p95_latency_ms')} | {cfg.get('throughput_fps')} | ${cfg.get('cost_per_1000_frames_usd'):.6f} |"
+            f"| {cfg['name']} | {cfg['median_latency_ms']} | {cfg['p95_latency_ms']} | {cfg['throughput_fps']} | ${cfg['cost_per_1000_frames_usd']:.6f} |"
         )
+    speedup = cool_res.get("speedup_a_vs_b_graviton")
+    report_lines.extend(["", f"COOL / stock Graviton throughput ratio: **{speedup}x**." if speedup
+                         else "COOL / stock Graviton throughput ratio: unavailable."])
 
     report_content = "\n".join(report_lines) + "\n"
 
-    print(report_content)
-
     if output_file:
+        output_file.parent.mkdir(parents=True, exist_ok=True)
         output_file.write_text(report_content, encoding="utf-8")
-        print(f"Report written to: {output_file}")
-
-    return 0
+    return report_content
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="PathAble Evaluation Pipeline")
     parser.add_argument("--mode", choices=["synthetic", "measured"], default="synthetic")
-    parser.add_argument("--out", type=Path, default=Path(__file__).parent / "evaluation_summary_report.md")
+    parser.add_argument("--data-dir", type=Path, help="recorded data, manifest, and source evidence directory")
+    parser.add_argument("--out", type=Path, help="optional report path; stdout only by default")
     args = parser.parse_args()
-    sys.exit(run_pipeline(mode=args.mode, output_file=args.out))
+    try:
+        print(run_pipeline(mode=args.mode, output_file=args.out, data_dir=args.data_dir), end="")
+    except (ValueError, OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        parser.error(str(exc))

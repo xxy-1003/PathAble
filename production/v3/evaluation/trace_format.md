@@ -2,6 +2,11 @@
 
 Conforms to Section 11 of the project proposal: **Example Decision Trace**.
 
+The JSON below illustrates the schema only. Its timestamps, distances,
+latencies, cloud actions, and map version are invented examples and must not be
+presented as trial results. Replace the example with an audited trace before
+including it in submission evidence.
+
 Every submission evidence log records the end-to-end decision chain spanning the on-device **Fast Loop**, the AWS **Slow Loop**, and the **Human-in-the-Loop** approval action.
 
 ---
@@ -88,7 +93,7 @@ Every submission evidence log records the end-to-end decision chain spanning the
       "loop": "Device",
       "user": "subsequent_user_02",
       "location": "Junction A",
-      "action_taken": "Fetched map v14; computed optimal route A -> B -> E -> F -> D directly."
+      "action_taken": "Fetched the approved newer map version; computed the alternative route."
     }
   ]
 }

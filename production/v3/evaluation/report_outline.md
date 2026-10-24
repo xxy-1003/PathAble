@@ -1,6 +1,10 @@
 # PathAble: Technical Report Outline
 **Submission for OpenCV AI Competition 2026, powered by AWS**
 
+**Draft outline:** architectural descriptions and numeric thresholds below are
+planned methods or proposal targets. State measured results only after recorded
+evidence has passed the measured-data gate and a human review.
+
 ---
 
 ### Title: PathAble: A Living Indoor Route for Visually Impaired Users
@@ -8,17 +12,17 @@
 
 1. **Executive Summary**
    - Problem: Pre-mapped indoor navigation fails when spaces dynamically change throughout the day.
-   - Innovation: Vision changes the route, not just alerts; fast local decision loop (<700 ms) paired with AWS slow loop that learns lasting closures with human approval.
+   - Intended innovation: vision changes the route, with a local decision loop targeting a p95 under 700 ms and a separately validated cloud review loop.
    - Core Awards Targeted: *Agentic Vision Award* and *Best Use of COOL on AWS Graviton*.
 
 2. **Problem Statement & Accessibility Context**
-   - 2.2 billion people with visual impairment worldwide (WHO).
+   - Add a current, cited WHO figure only after verifying its definition and publication date.
    - Limitations of cane, scene describers (Seeing AI/Be My Eyes), and static beacon maps (NavCog).
    - Compliance with Accessibility Standards: Department of Standards Malaysia (MS 1184:2014) for corridor clearance.
 
 3. **System Architecture (Two-Loop Design)**
    - Fast Loop (On-Device): Laptop + chest webcam, 640x480 @ 10 FPS, offline TTS, zero cloud dependency for walking safety.
-   - Slow Loop (On-AWS): API Gateway, Lambda, S3, EC2 c7g.large Graviton with COOL, Amazon Bedrock (Nova Lite), DynamoDB, SNS.
+   - Planned slow loop on AWS: API Gateway, Lambda, S3, Graviton with COOL, DynamoDB, SNS, and Bedrock where verified.
 
 4. **Computer Vision Implementation with OpenCV 5**
    - New OpenCV 5 DNN engine running YOLO11n-seg ONNX without external runtimes.
@@ -30,10 +34,10 @@
    - Deterministic decision table (CONTINUE, STEP ASIDE, WAIT AND RE-OBSERVE, TURN TO LOOK, REROUTE, STOP AND ESCALATE).
    - Active perception: resolving ambiguity via wait or look probes before committing.
    - Offline text-to-speech voice layer: emergency STOP priority interrupts, normally silent CONTINUE.
-   - Latency budget breakdown: capture (40ms) + DNN (100ms) + mask/distance (30ms) + Dijkstra (10ms) + speech dispatch (300ms) <= 700 ms (95th percentile).
+   - Proposed latency budget and the measured p95 from synchronized capture-to-speech logs; do not present component estimates as measurements.
 
 6. **AWS Graviton & COOL Cloud Re-check Workload**
-   - EC2 c7g.large Graviton3 running Cloud-Optimized OpenCV Library (COOL).
+   - Record the actual Graviton instance and COOL build used for the benchmark.
    - Strands Agents SDK orchestrating re-check tools (`detect`, `motion`, `clearance`, `history`).
    - Tie-breaking with Amazon Bedrock (Amazon Nova Lite) with written justifications.
    - Human-in-the-loop facilities sign-off via S3/CloudFront dashboard before permanent DynamoDB map updates.

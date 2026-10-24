@@ -18,7 +18,7 @@ The baseline represents conventional indoor turn-by-turn navigation (e.g. BLE be
   - Total time spent before the user is blocked.
 
 ### Hypothesis
-Without perception, the static baseline guide will send $100\%$ of users directly into the blocked B–C corridor, requiring spotter intervention or cane collision. PathAble will achieve $0$ collisions and automatically divert users via E–F.
+We expect the static-map baseline to continue toward the staged B–C blockage more often than the vision-guided prototype. The supervised trials will measure route decisions, spotter interventions, and collisions for both conditions. No outcome is assumed in advance.
 
 ---
 
