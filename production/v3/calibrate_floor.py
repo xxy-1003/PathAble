@@ -33,6 +33,21 @@ def project(points: np.ndarray, homography: np.ndarray) -> np.ndarray:
     return cv2.perspectiveTransform(points.reshape(-1, 1, 2), homography).reshape(-1, 2)
 
 
+def fit_floor_homography(pixels: np.ndarray, metres: np.ndarray):
+    """Keep the same physical inlier limit when MAGSAC cannot fit a layout."""
+    for name, method in (("USAC_MAGSAC", cv2.USAC_MAGSAC), ("RANSAC", cv2.RANSAC)):
+        homography, inliers = cv2.findHomography(pixels, metres, method, 0.10)
+        if (homography is not None and inliers is not None
+                and np.isfinite(homography).all() and inliers.sum() >= 6):
+            residuals = np.linalg.norm(project(pixels, homography) - metres, axis=1)
+            accepted = inliers.ravel() != 0
+            if np.isfinite(residuals).all() and np.all(residuals[accepted] <= 0.10):
+                if name == "RANSAC":
+                    print("MAGSAC did not produce a usable fit; using RANSAC with the same 0.10 m inlier limit.")
+                return homography, inliers, name
+    raise ValueError("Homography needs at least six inlier fit points; remeasure the floor")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("points", type=Path, help="Measured point CSV based on the fixed camera frame")
@@ -62,9 +77,10 @@ def main() -> None:
 
     fit_pixels = undistorted(fit)
     fit_metres = np.asarray([[row[2], row[3]] for row in fit], dtype=np.float64)
-    homography, inliers = cv2.findHomography(fit_pixels, fit_metres, cv2.USAC_MAGSAC, 0.10)
-    if homography is None or inliers is None or inliers.sum() < 6:
-        raise SystemExit("Homography needs at least six inlier fit points; remeasure the floor")
+    try:
+        homography, inliers, estimator = fit_floor_homography(fit_pixels, fit_metres)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     check_pixels = undistorted(checks)
     check_metres = np.asarray([[row[2], row[3]] for row in checks], dtype=np.float64)
     errors = np.linalg.norm(project(check_pixels, homography) - check_metres, axis=1)
@@ -75,6 +91,7 @@ def main() -> None:
         raise SystemExit("Floor calibration rejected: held-out error exceeds 0.15 m")
     result = {
         "calibration_method": "surveyed_homography",
+        "homography_estimator": estimator,
         "homography_undistorted_px_to_floor_m": homography.tolist(),
         "camera_calibration": str(args.calibration.resolve()),
         "camera_calibration_sha256": hashlib.sha256(camera_bytes).hexdigest(),

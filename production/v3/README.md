@@ -54,6 +54,13 @@ The evaluation gate reads the recorded benchmark's native `run.json` format;
 physical trials, real calibration, and capture-to-audible-speech timings still
 need to be collected. See `evaluation/measured_data_guide.md`.
 
+Floor fitting tries USAC MAGSAC first. If it cannot produce six valid inliers,
+the tool explicitly reports a RANSAC fallback with the same 0.10 m inlier limit.
+The saved `homography_estimator` identifies the method actually used. Both
+methods still require two independent check points within 0.15 m. These are
+acceptance limits, not a guarantee of accuracy across the corridor; inspect the
+actual check errors relative to the size of your measured patch.
+
 ## Camera selection
 
 The team's primary camera is now a Logitech USB webcam labelled HD 1080p.

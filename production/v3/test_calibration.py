@@ -12,12 +12,27 @@ if HAS_OPENCV:
     import cv2
     import numpy as np
     from calibrate_camera import board_object_points, main as calibrate_camera_main
+    from calibrate_floor import fit_floor_homography
     from marker_id_probe import detect_ids, status_label
     from marker_pose_probe import inspect, marker_object_points
 
 
 @unittest.skipUnless(HAS_OPENCV, "OpenCV vision extras are not installed")
 class CalibrationTests(unittest.TestCase):
+    def test_floor_fallback_keeps_physical_inlier_limit(self):
+        pixels = np.array([[0,0],[10,0],[0,10],[10,10],[3,4],[7,6]], dtype=float)
+        metres = pixels / 100
+        matrix = np.diag([0.01,0.01,1.0])
+        mask = np.ones((6,1), dtype=np.uint8)
+        with patch("calibrate_floor.cv2.findHomography", side_effect=[(None,None),(matrix,mask)]) as fit:
+            _, _, estimator = fit_floor_homography(pixels, metres)
+        self.assertEqual(estimator, "RANSAC")
+        self.assertEqual(fit.call_args_list[0].args[2:], (cv2.USAC_MAGSAC, 0.10))
+        self.assertEqual(fit.call_args_list[1].args[2:], (cv2.RANSAC, 0.10))
+        with patch("calibrate_floor.cv2.findHomography", side_effect=[(None,None),(np.eye(3),mask)]):
+            with self.assertRaisesRegex(ValueError, "six inlier"):
+                fit_floor_homography(pixels, metres)
+
     def test_multiple_views_accept_both_opencv_corner_shapes(self):
         """Exercise the second SPACE capture that previously raised AxisError."""
         root = Path(__file__).resolve().parent / ".test-tmp"
