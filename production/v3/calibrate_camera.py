@@ -109,7 +109,8 @@ def main() -> None:
                 raise SystemExit("Calibration cancelled; no parameters saved")
             if key == ord(" ") and found and corners is not None:
                 if previous_corners is not None and previous_corners.shape == corners.shape:
-                    displacement = np.mean(np.linalg.norm(corners - previous_corners, axis=2))
+                    # OpenCV returns either (N, 2) or (N, 1, 2) corner arrays.
+                    displacement = np.mean(np.linalg.norm(corners - previous_corners, axis=-1))
                     if displacement < min(width, height) * 0.03:
                         print("Move or tilt the checkerboard more before the next capture.")
                         continue

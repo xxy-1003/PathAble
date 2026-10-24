@@ -5,18 +5,50 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 HAS_OPENCV = importlib.util.find_spec("cv2") is not None
 if HAS_OPENCV:
     import cv2
     import numpy as np
-    from calibrate_camera import board_object_points
+    from calibrate_camera import board_object_points, main as calibrate_camera_main
     from marker_id_probe import detect_ids, status_label
     from marker_pose_probe import inspect, marker_object_points
 
 
 @unittest.skipUnless(HAS_OPENCV, "OpenCV vision extras are not installed")
 class CalibrationTests(unittest.TestCase):
+    def test_multiple_views_accept_both_opencv_corner_shapes(self):
+        """Exercise the second SPACE capture that previously raised AxisError."""
+        root = Path(__file__).resolve().parent / ".test-tmp"
+        root.mkdir(exist_ok=True)
+        for shape in ((54, 2), (54, 1, 2)):
+            with self.subTest(shape=shape), tempfile.TemporaryDirectory(dir=root) as directory:
+                output = Path(directory) / "camera.json"
+                corners = np.mgrid[0:9, 0:6].T.reshape(-1, 2).astype(np.float32) * 10 + 50
+                views = [(True, (corners + [20 * index, 0]).astype(np.float32).reshape(shape), (9, 6))
+                         for index in range(10)]
+                with (patch("sys.argv", ["calibrate_camera.py", "--camera", "1", "--samples", "10",
+                                         "--target", "phone_screen", "--square-mm", "14.2",
+                                         "--output", str(output)]),
+                      patch("calibrate_camera.cv2.VideoCapture") as capture_factory,
+                      patch("calibrate_camera.find_board", side_effect=views),
+                      patch("calibrate_camera.cv2.drawChessboardCorners"),
+                      patch("calibrate_camera.cv2.imshow"),
+                      patch("calibrate_camera.cv2.waitKey", return_value=ord(" ")),
+                      patch("calibrate_camera.cv2.destroyAllWindows"),
+                      patch("calibrate_camera.cv2.calibrateCamera",
+                            return_value=(0.5, np.eye(3), np.zeros(5), [], []))):
+                    capture = capture_factory.return_value
+                    capture.isOpened.return_value = True
+                    capture.read.return_value = (True, np.zeros((480, 640, 3), dtype=np.uint8))
+                    calibrate_camera_main()
+                    capture.release.assert_called_once()
+                saved = json.loads(output.read_text(encoding="utf-8"))
+                self.assertEqual(saved["samples"], 10)
+                self.assertEqual(saved["square_size_mm"], 14.2)
+                self.assertFalse(saved["verified_target_size"])
+
     def test_checkerboard_object_spacing_is_18_mm(self):
         points = board_object_points(9, 6, 18)
         self.assertEqual(points.shape, (54, 3))
