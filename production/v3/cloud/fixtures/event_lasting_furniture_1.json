@@ -1,0 +1,50 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "evt-0193",
+  "client_id": "laptop-demo-unit-01",
+  "timestamp": "2026-10-24T03:00:00Z",
+  "edge": {
+    "from_node": "B",
+    "to_node": "C"
+  },
+  "current_node": "B",
+  "destination_node": "D",
+  "local_reroute": ["B", "E", "F", "D"],
+  "observations": {
+    "confidence": 0.82,
+    "obstacle_classes": ["chair", "dining table"],
+    "distance_band": "near",
+    "ground_contact_distance_m": 0.9,
+    "zone_occupancy": {
+      "left": "occupied",
+      "centre": "occupied",
+      "right": "occupied"
+    },
+    "moving": false,
+    "consecutive_blocked_frames": 7
+  },
+  "keyframes": [
+    {
+      "frame_id": "kf_0193_1",
+      "filename": "chair_table_b_c_1.jpg",
+      "s3_key": "events/evt-0193/chair_table_b_c_1.jpg",
+      "sha256": "6c9d3ed414474e4033ac29ccb8653d9b048039e1a90f1d3e8c0e27161b2dff03",
+      "mime_type": "image/jpeg",
+      "people_blurred": true
+    },
+    {
+      "frame_id": "kf_0193_2",
+      "filename": "chair_table_b_c_2.jpg",
+      "s3_key": "events/evt-0193/chair_table_b_c_2.jpg",
+      "sha256": "7d0e4ed414474e4033ac29ccb8653d9b048039e1a90f1d3e8c0e27161b2dff04",
+      "mime_type": "image/jpeg",
+      "people_blurred": true
+    }
+  ],
+  "privacy": {
+    "people_blurred_on_device": true,
+    "face_recognition_used": false,
+    "s3_lifecycle_days": 7
+  },
+  "map_version": 1
+}

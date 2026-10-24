@@ -1,0 +1,29 @@
+{
+  "metadata": {
+    "fixture_type": "SYNTHETIC_FIXTURE_NOT_MEASURED_TRIAL",
+    "description": "20 synthetic continuous route runs from Entrance (A) to Lab (D) with simulated obstacle events",
+    "total_runs": 20
+  },
+  "runs": [
+    {"run_id": "RUN_01", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 46.2},
+    {"run_id": "RUN_02", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 45.8},
+    {"run_id": "RUN_03", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 48.1},
+    {"run_id": "RUN_04", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 44.9},
+    {"run_id": "RUN_05", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 47.3},
+    {"run_id": "RUN_06", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 46.0},
+    {"run_id": "RUN_07", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 49.5},
+    {"run_id": "RUN_08", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 45.2},
+    {"run_id": "RUN_09", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 47.8},
+    {"run_id": "RUN_10", "start": "A", "destination": "D", "blocked_edge": ["B", "C"], "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 46.5},
+    {"run_id": "RUN_11", "start": "A", "destination": "D", "obstacle_type": "moving_person", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 42.1},
+    {"run_id": "RUN_12", "start": "A", "destination": "D", "obstacle_type": "moving_person", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 41.5},
+    {"run_id": "RUN_13", "start": "A", "destination": "D", "obstacle_type": "moving_person", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 43.0},
+    {"run_id": "RUN_14", "start": "A", "destination": "D", "obstacle_type": "moving_person", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 40.8},
+    {"run_id": "RUN_15", "start": "A", "destination": "D", "obstacle_type": "centre_chair", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 41.9},
+    {"run_id": "RUN_16", "start": "A", "destination": "D", "obstacle_type": "centre_chair", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 42.4},
+    {"run_id": "RUN_17", "start": "A", "destination": "D", "obstacle_type": "centre_chair", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 43.2},
+    {"run_id": "RUN_18", "start": "A", "destination": "D", "obstacle_type": "centre_chair", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 42.0},
+    {"run_id": "RUN_19", "start": "A", "destination": "D", "obstacle_type": "centre_chair", "reached_destination": true, "spotter_interventions": 0, "collisions": 0, "completion_time_s": 41.7},
+    {"run_id": "RUN_20", "start": "A", "destination": "D", "obstacle_type": "unclear_lighting", "reached_destination": false, "spotter_interventions": 1, "collisions": 0, "completion_time_s": 28.0}
+  ]
+}

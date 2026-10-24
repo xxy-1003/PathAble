@@ -11,7 +11,10 @@ from dataclasses import dataclass
 from heapq import heappop, heappush
 from pathlib import Path
 import json
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
+
+if TYPE_CHECKING:
+    from voice import VoiceGuidance
 
 
 Zone = Literal["clear", "occupied", "unknown"]
@@ -92,10 +95,17 @@ class RouteMap:
 class LocalAgent:
     """Applies Section 8 of proposal v3; unknown evidence leads to re-observation."""
 
-    def __init__(self, route_map: RouteMap, start: str, destination: str):
+    def __init__(
+        self,
+        route_map: RouteMap,
+        start: str,
+        destination: str,
+        voice: VoiceGuidance | None = None,
+    ):
         self.map = route_map
         self.current_node = start
         self.destination = destination
+        self.voice = voice
         self.current_route = self.map.route(start, destination)
         self.history: deque[bool] = deque(maxlen=10)
         self.low_confidence_rechecks = 0
@@ -104,14 +114,54 @@ class LocalAgent:
         self.awaiting_new_corridor = False
 
     def _decision(self, action: str, message: str = "", edge=None) -> Decision:
-        return Decision(action, message, self.current_route, edge)
+        decision = Decision(action, message, self.current_route, edge)
+        if self.voice and message:
+            is_stop = action == "STOP_AND_ESCALATE"
+            is_reroute = action == "REROUTE"
+            is_urgent = is_stop or is_reroute
+            self.voice.speak(
+                message,
+                force=is_urgent,
+                priority=is_urgent,
+                now=self.last_frame_at,
+            )
+        return decision
 
     def camera_timeout(self, now: float) -> Decision | None:
         if self.last_frame_at is None or now - self.last_frame_at > 1.0:
-            return self._decision(
+            decision = self._decision(
                 "STOP_AND_ESCALATE", "Please stop and stay where you are. Camera unavailable."
             )
+            return decision
         return None
+
+    def create_cloud_event(
+        self,
+        event: Observation,
+        decision: Decision,
+        keyframes: list | None = None,
+    ) -> dict:
+        """Constructs an AWS slow-loop blocked-edge event JSON per proposal Section 7.1 and 9.1."""
+        edge_pair = list(decision.blocked_edge) if decision.blocked_edge else []
+        return {
+            "event_id": f"e-{int(event.timestamp * 1000):04d}",
+            "timestamp": event.timestamp,
+            "edge": edge_pair,
+            "current_node": self.current_node,
+            "destination": self.destination,
+            "route": list(decision.route),
+            "obstacle_class": event.obstacle_class,
+            "confidence": event.confidence,
+            "distance": event.distance,
+            "zones": {
+                "left": event.left,
+                "centre": event.centre,
+                "right": event.right,
+            },
+            "action": decision.action,
+            "message": decision.message,
+            "keyframes": keyframes or [],
+        }
 
     def observe(self, event: Observation) -> Decision:
         if not 0.0 <= event.confidence <= 1.0:
@@ -151,6 +201,7 @@ class LocalAgent:
         )
         self.history.append(full_near)
 
+        # CONTINUE is normally silent: message is empty, no speech is emitted
         if event.centre == "clear" and event.confidence >= 0.60:
             self.low_confidence_rechecks = 0
             return self._decision("CONTINUE")

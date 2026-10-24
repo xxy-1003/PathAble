@@ -7,9 +7,10 @@ import unittest
 
 HAS_OPENCV = importlib.util.find_spec("cv2") is not None
 if HAS_OPENCV:
-    from calibrated_observation import FloorProjector, observation_from_vision
+    import numpy as np
+    from calibrated_observation import FloorProjector, PerceptionPipeline, observation_from_vision
     from local_agent import LocalAgent, RouteMap
-    from vision import Obstacle, VisionResult
+    from vision import MarkerDetection, Obstacle, VisionResult
 
 
 @unittest.skipUnless(HAS_OPENCV, "OpenCV vision extras are not installed")
@@ -22,6 +23,7 @@ class CalibratedObservationTests(unittest.TestCase):
         self.camera_path = Path(self.temp.name) / "camera.json"
         self.floor_path = Path(self.temp.name) / "floor.json"
         self.camera = {
+            "calibration_method": "opencv_checkerboard",
             "verified_target_size": True,
             "calibration_target": "phone_screen",
             "mount_description": "Fixed tripod at marked station",
@@ -32,6 +34,7 @@ class CalibratedObservationTests(unittest.TestCase):
             "distortion_coefficients": [0, 0, 0, 0, 0],
         }
         self.floor = {
+            "calibration_method": "surveyed_homography",
             "fixed_mount_verified": True,
             "floor_origin_and_axes": "Measured grid, x east, y north",
             "camera_floor_xy_m": [0.0, 0.0],
@@ -61,6 +64,7 @@ class CalibratedObservationTests(unittest.TestCase):
         self.camera["verified_target_size"] = False
         self.save()
         self.assertFalse(self.projector().ready)
+
         self.camera["verified_target_size"] = True
         self.save()
         self.camera_path.write_text(self.camera_path.read_text() + " ", encoding="utf-8")
@@ -78,6 +82,15 @@ class CalibratedObservationTests(unittest.TestCase):
         self.save()
         self.assertEqual(self.projector().distance_band(
             (470, 240), (640, 480), same_pose_verified=True), "unknown")
+
+    def test_old_generated_calibration_cannot_be_accepted_as_measured(self):
+        self.camera.pop("calibration_method")
+        self.camera["calibration_target"] = "optical_bench"
+        self.save()
+        self.assertFalse(self.projector().ready)
+        self.camera["calibration_method"] = "opencv_checkerboard"
+        self.save()
+        self.assertFalse(self.projector().ready)
 
     def test_adapter_never_invents_clear_path(self):
         projector = self.projector()
@@ -97,6 +110,83 @@ class CalibratedObservationTests(unittest.TestCase):
                           "edges": [{"from": "A", "to": "B", "distance": 1}]})
         agent = LocalAgent(route, "A", "B")
         self.assertEqual(agent.observe(unknown).action, "WAIT_AND_REOBSERVE")
+
+    def test_node_and_moving_fields_propagate_conservatively(self):
+        projector = self.projector()
+        obstacle = Obstacle("person", 0.95, (200, 100, 440, 400), (320, 390), (0, 0.4, 0))
+        result = VisionResult((obstacle,), (0, 0.4, 0), 1.0)
+
+        # Pass node and moving flags
+        obs = observation_from_vision(
+            result, 2.0, (640, 480), projector,
+            same_pose_verified=True, node="B", moving=True
+        )
+        self.assertEqual(obs.node, "B")
+        self.assertTrue(obs.moving)
+        self.assertEqual(obs.obstacle_class, "person")
+
+        # When moving person is in centre, agent issues WAIT_AND_REOBSERVE
+        route = RouteMap({"nodes": {"A": "A", "B": "B", "C": "C"},
+                          "edges": [{"from": "A", "to": "B", "distance": 10},
+                                    {"from": "B", "to": "C", "distance": 15}]})
+        agent = LocalAgent(route, "A", "C")
+        # Initialize at node B
+        decision = agent.observe(obs)
+        self.assertEqual(decision.action, "WAIT_AND_REOBSERVE")
+        self.assertIn("person", decision.message.lower())
+
+    def test_missing_calibration_fails_closed_to_unknown_distance(self):
+        missing_cam = Path(self.temp.name) / "nonexistent_cam.json"
+        missing_floor = Path(self.temp.name) / "nonexistent_floor.json"
+        broken_projector = FloorProjector(missing_cam, missing_floor)
+        self.assertFalse(broken_projector.ready)
+        self.assertIsNone(broken_projector.distance_metres((320, 240), (640, 480), same_pose_verified=True))
+        self.assertEqual(broken_projector.distance_band((320, 240), (640, 480), same_pose_verified=True), "unknown")
+
+        obstacle = Obstacle("chair", 0.85, (200, 100, 440, 400), (320, 390), (0, 0.4, 0))
+        result = VisionResult((obstacle,), (0, 0.4, 0), 1.0)
+        obs = observation_from_vision(result, 1.0, (640, 480), broken_projector, same_pose_verified=True)
+        self.assertEqual(obs.distance, "unknown")
+
+    def test_perception_pipeline_synthetic_end_to_end(self):
+        # Create a mock detector returning a chair in the centre zone
+        class MockDetector:
+            def detect(self, frame):
+                obstacle = Obstacle("chair", 0.88, (200, 100, 440, 300), (470, 240), (0, 0.25, 0))
+                return VisionResult((obstacle,), (0, 0.25, 0), 12.5)
+
+        # Create a mock localizer returning marker node "B"
+        class MockLocalizer:
+            def detect(self, frame):
+                return (MarkerDetection(marker_id=1, node="B", corners=((0, 0), (1, 0), (1, 1), (0, 1))),)
+
+        projector = self.projector()
+        pipeline = PerceptionPipeline(
+            detector=MockDetector(),
+            localizer=MockLocalizer(),
+            projector=projector,
+            same_pose_verified=True,
+        )
+
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        obs = pipeline.process_frame(frame, timestamp=5.0)
+
+        self.assertEqual(obs.timestamp, 5.0)
+        self.assertEqual(obs.node, "B")
+        self.assertEqual(obs.obstacle_class, "chair")
+        self.assertAlmostEqual(obs.confidence, 0.88)
+        self.assertEqual(obs.centre, "occupied")
+        self.assertEqual(obs.distance, "medium")
+
+    def test_perception_pipeline_fail_closed_on_none_frame(self):
+        pipeline = PerceptionPipeline()
+        obs = pipeline.process_frame(None, timestamp=10.0)
+        self.assertEqual(obs.timestamp, 10.0)
+        self.assertIsNone(obs.obstacle_class)
+        self.assertEqual(obs.confidence, 0.0)
+        self.assertEqual((obs.left, obs.centre, obs.right, obs.distance),
+                         ("unknown", "unknown", "unknown", "unknown"))
+        self.assertIsNone(obs.node)
 
 
 if __name__ == "__main__":

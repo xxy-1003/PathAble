@@ -22,6 +22,38 @@ def board_object_points(columns: int, rows: int, square_mm: float) -> np.ndarray
     return points
 
 
+def find_board(gray: np.ndarray, cols: int, rows: int):
+    """Detect checkerboard corners trying Sector-Based and standard methods in both orientations."""
+    sb_flags = cv2.CALIB_CB_NORMALIZE_IMAGE | cv2.CALIB_CB_EXHAUSTIVE
+    std_flags = cv2.CALIB_CB_ADAPTIVE_THRESH | cv2.CALIB_CB_NORMALIZE_IMAGE
+
+    # 1. Sector-Based (9, 6)
+    found, corners = cv2.findChessboardCornersSB(gray, (cols, rows), flags=sb_flags)
+    if found and corners is not None:
+        return True, corners, (cols, rows)
+
+    # 2. Sector-Based (6, 9)
+    found, corners = cv2.findChessboardCornersSB(gray, (rows, cols), flags=sb_flags)
+    if found and corners is not None:
+        return True, corners, (rows, cols)
+
+    # 3. Standard adaptive threshold (9, 6)
+    found, corners = cv2.findChessboardCorners(gray, (cols, rows), flags=std_flags)
+    if found and corners is not None:
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        return True, corners, (cols, rows)
+
+    # 4. Standard adaptive threshold (6, 9)
+    found, corners = cv2.findChessboardCorners(gray, (rows, cols), flags=std_flags)
+    if found and corners is not None:
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+        corners = cv2.cornerSubPix(gray, corners, (11, 11), (-1, -1), criteria)
+        return True, corners, (rows, cols)
+
+    return False, None, (cols, rows)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--camera", type=int, default=0)
@@ -52,7 +84,7 @@ def main() -> None:
     frame_size = None
     print("Show the entire checkerboard and white margin. Move and tilt it between captures.")
     if args.target == "phone_screen":
-        print("Keep the phone in portrait with rotation locked and browser zoom unchanged.")
+        print("Tip: Keep phone brightness around 30-50% to prevent camera glare.")
     print("Press SPACE to accept a detected view; press Q to quit.")
     try:
         while len(image_points) < args.samples:
@@ -64,10 +96,10 @@ def main() -> None:
                 raise SystemExit("Camera resolution changed during calibration")
             frame_size = (width, height)
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            found, corners = cv2.findChessboardCornersSB(gray, (columns, rows))
+            found, corners, grid_dims = find_board(gray, columns, rows)
             preview = frame.copy()
-            if found:
-                cv2.drawChessboardCorners(preview, (columns, rows), corners, found)
+            if found and corners is not None:
+                cv2.drawChessboardCorners(preview, grid_dims, corners, found)
             label = f"Views {len(image_points)}/{args.samples} | {'FOUND' if found else 'NO BOARD'} | SPACE save | Q quit"
             cv2.putText(preview, label, (12, 28), cv2.FONT_HERSHEY_SIMPLEX,
                         0.52, (0, 255, 0) if found else (0, 0, 255), 2)
@@ -75,16 +107,16 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if key in (ord("q"), 27):
                 raise SystemExit("Calibration cancelled; no parameters saved")
-            if key == ord(" ") and found:
-                if previous_corners is not None:
+            if key == ord(" ") and found and corners is not None:
+                if previous_corners is not None and previous_corners.shape == corners.shape:
                     displacement = np.mean(np.linalg.norm(corners - previous_corners, axis=2))
                     if displacement < min(width, height) * 0.03:
                         print("Move or tilt the checkerboard more before the next capture.")
                         continue
-                object_points.append(board_object_points(columns, rows, square_mm))
+                object_points.append(board_object_points(grid_dims[0], grid_dims[1], square_mm))
                 image_points.append(corners.astype(np.float32))
                 previous_corners = corners.copy()
-                print(f"Accepted view {len(image_points)}/{args.samples}")
+                print(f"Accepted view {len(image_points)}/{args.samples} ({grid_dims[0]}x{grid_dims[1]})")
     finally:
         capture.release()
         cv2.destroyAllWindows()
@@ -97,6 +129,7 @@ def main() -> None:
     if rms > 1.5:
         raise SystemExit(f"Calibration rejected: RMS reprojection error {rms:.3f} px exceeds 1.5 px")
     result = {
+        "calibration_method": "opencv_checkerboard",
         "camera_index": args.camera,
         "backend": args.backend,
         "image_size_px": list(frame_size),

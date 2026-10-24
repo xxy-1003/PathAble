@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "evt-b-c-invalid-priv-001",
+  "client_id": "laptop-demo-unit-01",
+  "timestamp": "2026-10-24T03:50:00Z",
+  "edge": {
+    "from_node": "B",
+    "to_node": "C"
+  },
+  "current_node": "B",
+  "destination_node": "D",
+  "local_reroute": ["B", "E", "F", "D"],
+  "observations": {
+    "confidence": 0.85,
+    "obstacle_classes": ["person"],
+    "distance_band": "near",
+    "zone_occupancy": {
+      "left": "clear",
+      "centre": "occupied",
+      "right": "clear"
+    },
+    "moving": false,
+    "consecutive_blocked_frames": 6
+  },
+  "privacy": {
+    "people_blurred_on_device": false,
+    "face_recognition_used": false,
+    "s3_lifecycle_days": 7
+  },
+  "map_version": 1
+}

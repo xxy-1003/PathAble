@@ -74,6 +74,7 @@ def main() -> None:
     if not np.isfinite(homography).all() or max_error > 0.15:
         raise SystemExit("Floor calibration rejected: held-out error exceeds 0.15 m")
     result = {
+        "calibration_method": "surveyed_homography",
         "homography_undistorted_px_to_floor_m": homography.tolist(),
         "camera_calibration": str(args.calibration.resolve()),
         "camera_calibration_sha256": hashlib.sha256(camera_bytes).hexdigest(),

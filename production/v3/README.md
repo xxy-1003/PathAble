@@ -1,11 +1,60 @@
-# PathAble v3: local decision core
+# PathAble v3: prototype integration
 
-This is the first executable slice of the 18 October 2026 proposal. It follows
-the one-floor, six-node scope and implements the offline decision table with
+This combines the navigation, perception, cloud workflow, benchmark, and evaluation work.
+It follows the one-floor, six-node scope and implements the offline decision table with
 multi-frame blockage confirmation, Dijkstra routing, low-confidence rechecks,
-and stop decisions when the camera or route is unavailable.
+camera timeout, active perception, and offline voice guidance.
 
-## Available cameras
+## Local navigation and voice verification
+
+Run from this directory with Python 3.11+:
+
+```powershell
+python -m unittest -v test_local_agent.py test_local_navigation_voice.py test_voice.py
+python replay_demo.py
+```
+
+The offline voice layer (`voice.py`) operates non-blockingly using `pyttsx3` or native Windows
+SAPI with automatic graceful fallback to mock mode in headless environments or systems without
+an active audio output device. It enforces:
+- `STOP_AND_ESCALATE` takes immediate priority, clearing any pending queue.
+- `CONTINUE` is normally silent.
+- `STEP_ASIDE`, `TURN_TO_LOOK`, `WAIT_AND_REOBSERVE`, and `REROUTE` speak appropriate instructions
+  with debouncing cooldowns to prevent repeat spamming.
+- The scripted A-to-D route replay demonstrates the entire journey from Entrance (A) to Lab (D)
+  covering all six decision actions: `CONTINUE`, `STOP_AND_ESCALATE`, `WAIT_AND_REOBSERVE`,
+  `REROUTE`, `TURN_TO_LOOK`, `STEP_ASIDE`, plus `ARRIVED`.
+
+> [!NOTE]
+> The replay uses labelled, synthetic observations. It proves routing, active perception, and
+> offline voice decision logic without camera or AWS dependencies. Spoken walking instructions
+> are **not** claimed to be safe for live guidance until camera calibration, physical floor
+> distance measurements, and moving-camera error have been tested on site with a safety spotter.
+
+## Integration fixes and recorded evidence
+
+The live viewer no longer generates calibration from a C920 model name. Use
+`calibrate_camera.py` with the physically measured checkerboard, then
+`calibrate_floor.py` with surveyed floor points. New files record their measured
+calibration method; older generated optical-bench defaults are rejected.
+Verify the ruler measurement, mount, axes, and camera-file hash before use.
+
+From this directory, `python live_navigation.py --camera N --voice-mode mock`
+is a conservative inspection loop. Only add `--same-pose-verified` when the
+current fixed mount matches the surveyed pose. A moving chest camera cannot
+automatically reuse a stationary floor mapping. Unoccupied zones remain unknown
+even with an active detector; absent detections do not establish a clear route.
+The viewer connects the local voice engine, while its mock mode has no audible
+output. `SpeechRecord.latency_ms` is explicitly scoped to queue dispatch;
+`audible_start_latency_ms` remains unavailable until physically measured.
+
+The cloud service defaults to recorded evidence or unknown values. Its scripted
+demo requires `--simulation` and is labelled accordingly. See `cloud/README.md`.
+The evaluation gate reads the recorded benchmark's native `run.json` format;
+physical trials, real calibration, and capture-to-audible-speech timings still
+need to be collected. See `evaluation/measured_data_guide.md`.
+
+## Camera selection
 
 The team's primary camera is now a Logitech USB webcam labelled HD 1080p.
 The exact model has not been confirmed. The laptop's integrated camera is only
@@ -26,27 +75,6 @@ later tests. A camera mounted at a different angle or height needs its floor
 mapping checked again; calibration from the laptop's integrated camera must
 not be reused. Measure frame dropouts and delay on the actual device. If the
 camera stops providing fresh frames, navigation must stop.
-
-Run from this directory with Python 3.11+:
-
-```powershell
-python -m unittest -v test_local_agent.py
-python replay_demo.py
-```
-
-The replay uses labelled, synthetic observations. It proves routing and
-decision behavior only. Camera capture and YOLO11n-seg masks have been tested
-as a separate probe. A fixed-pose adapter now converts mask contact pixels
-into provisional near/medium/far observations, but it has only synthetic
-tests: physical floor distance, ArUco pose on the route, speech, AWS event
-intake, shared map, approval, COOL, and measured safety or whole-pipeline
-latency targets are **not yet verified**.
-The older `production_server.py` is a separate prototype; do not treat its
-bounding-box output as the v3 confidence/mask/distance event.
-
-The replay has no camera or model dependency and remains the acceptance test
-for the decision module. The model is downloaded locally into ignored `models/`
-rather than committed to Git.
 
 Next integration gate: calibrate the printed markers, camera and floor on the
 actual route, then produce `Observation` instances from recorded clips before
@@ -143,5 +171,5 @@ contact outside the measured region, and values close to 1.0 m or 2.5 m
 boundaries yield `unknown`. Those bands are provisional demo settings, not
 measured safety thresholds. A frame with no target-class detection also has
 `unknown` zones: it is **not** proof of an empty corridor. Live walking and
-voice guidance remain disabled until moving-camera error and negative-detection
+voice guidance remain unvalidated until moving-camera error and negative-detection
 reliability have been measured on the actual route.

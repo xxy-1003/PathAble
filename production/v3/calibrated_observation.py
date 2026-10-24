@@ -16,7 +16,7 @@ import cv2
 import numpy as np
 
 from local_agent import Distance, Observation
-from vision import VisionResult
+from vision import MarkerLocalizer, SegmentationDetector, VisionResult
 
 
 class FloorProjector:
@@ -27,7 +27,10 @@ class FloorProjector:
             camera_bytes = Path(camera_path).read_bytes()
             camera = json.loads(camera_bytes)
             floor = json.loads(Path(floor_path).read_text(encoding="utf-8"))
-            if (camera.get("verified_target_size", camera.get("verified_print_size")) is not True
+            if (camera.get("calibration_method") != "opencv_checkerboard"
+                    or camera.get("calibration_target") not in {"printed_board", "phone_screen"}
+                    or floor.get("calibration_method") != "surveyed_homography"
+                    or camera.get("verified_target_size", camera.get("verified_print_size")) is not True
                     or not camera.get("mount_description")
                     or floor.get("fixed_mount_verified") is not True
                     or not isinstance(floor.get("floor_origin_and_axes"), str)
@@ -107,24 +110,146 @@ class FloorProjector:
         return "unknown"
 
 
-def observation_from_vision(result: VisionResult, timestamp: float,
-                            frame_size: tuple[int, int], projector: FloorProjector,
-                            *, same_pose_verified: bool = False) -> Observation:
-    """Produce an observation for review/replay, never evidence of clear space."""
+def observation_from_vision(
+    result: VisionResult,
+    timestamp: float,
+    frame_size: tuple[int, int],
+    projector: FloorProjector,
+    *,
+    same_pose_verified: bool = False,
+    node: str | None = None,
+    moving: bool = False,
+    allow_clear: bool = False,
+) -> Observation:
+    """Produce an observation for review/replay, preserving fail-closed behavior.
+
+    The legacy allow_clear argument is retained for callers but cannot promote
+    absent detections into free-space evidence. Unoccupied zones remain unknown.
+    """
     occupied = result.occupied
     zones = tuple("occupied" if value else "unknown" for value in occupied)
+
     centre_obstacles = [item for item in result.obstacles if item.coverage[1] >= 0.15]
-    distances = [projector.distance_metres(item.contact, frame_size,
-                                           same_pose_verified=same_pose_verified)
-                 for item in centre_obstacles]
+    distances = [
+        projector.distance_metres(item.contact, frame_size, same_pose_verified=same_pose_verified)
+        for item in centre_obstacles
+    ]
+
     if centre_obstacles and all(value is not None for value in distances):
         nearest = centre_obstacles[distances.index(min(distances))]
-        distance = projector.distance_band(nearest.contact, frame_size,
-                                           same_pose_verified=same_pose_verified)
+        distance = projector.distance_band(
+            nearest.contact, frame_size, same_pose_verified=same_pose_verified
+        )
         name = nearest.name
         confidence = nearest.confidence
-    else:
+    elif centre_obstacles:
         distance = "unknown"
-        name = centre_obstacles[0].name if centre_obstacles else None
+        name = centre_obstacles[0].name
         confidence = max((item.confidence for item in centre_obstacles), default=0.0)
-    return Observation(timestamp, name, confidence, *zones, distance)
+    else:
+        name = None
+        distance = "unknown"
+        confidence = 0.0
+
+    return Observation(timestamp, name, confidence, *zones, distance, moving=moving, node=node)
+
+
+class PerceptionPipeline:
+    """End-to-end camera/model/marker perception pipeline producing conservative Observation instances.
+
+    Strictly preserves fail-closed behavior at every step:
+    - Missing or invalid calibration -> distance is 'unknown'
+    - Missing model -> zones remain 'unknown' (never assumed 'clear')
+    - Sensor corruption / missing frame -> fail-closed unknown observation
+    """
+
+    def __init__(
+        self,
+        model_path: str | Path | None = None,
+        camera_path: str | Path | None = None,
+        floor_path: str | Path | None = None,
+        *,
+        detector: SegmentationDetector | None = None,
+        localizer: MarkerLocalizer | None = None,
+        projector: FloorProjector | None = None,
+        same_pose_verified: bool = False,
+        allow_clear: bool = False,
+    ):
+        if detector is not None:
+            self.detector = detector
+        elif model_path is not None and Path(model_path).is_file():
+            self.detector = SegmentationDetector(model_path)
+        else:
+            self.detector = None
+
+        if localizer is not None:
+            self.localizer = localizer
+        else:
+            try:
+                self.localizer = MarkerLocalizer()
+            except Exception:
+                self.localizer = None
+
+        if projector is not None:
+            self.projector = projector
+        elif camera_path is not None and floor_path is not None:
+            self.projector = FloorProjector(camera_path, floor_path)
+        else:
+            self.projector = FloorProjector("", "")
+
+        self.same_pose_verified = same_pose_verified
+        self.allow_clear = allow_clear
+        self.last_vision_result: VisionResult | None = None
+
+    def process_frame(
+        self,
+        frame: np.ndarray | None,
+        timestamp: float,
+        *,
+        moving: bool = False,
+    ) -> Observation:
+        """Process a camera frame and emit a conservative Observation."""
+        if frame is None or not isinstance(frame, np.ndarray) or frame.size == 0 or frame.ndim != 3:
+            self.last_vision_result = None
+            return Observation(
+                timestamp=timestamp,
+                obstacle_class=None,
+                confidence=0.0,
+                left="unknown",
+                centre="unknown",
+                right="unknown",
+                distance="unknown",
+                moving=False,
+                node=None,
+            )
+
+        frame_size = (frame.shape[1], frame.shape[0])
+
+        # 1. Junction marker detection (nodes A-F)
+        node = None
+        if self.localizer is not None:
+            markers = self.localizer.detect(frame)
+            if markers:
+                node = markers[0].node
+
+        # 2. Obstacle perception
+        if self.detector is not None:
+            vision_result = self.detector.detect(frame)
+            effective_allow_clear = self.allow_clear
+        else:
+            # Without an active neural network detector, we must never claim a corridor is clear
+            vision_result = VisionResult((), (0.0, 0.0, 0.0), 0.0)
+            effective_allow_clear = False
+        self.last_vision_result = vision_result
+
+        # 3. Floor projection & conservative observation synthesis
+        return observation_from_vision(
+            vision_result,
+            timestamp,
+            frame_size,
+            self.projector,
+            same_pose_verified=self.same_pose_verified,
+            node=node,
+            moving=moving,
+            allow_clear=effective_allow_clear,
+        )
