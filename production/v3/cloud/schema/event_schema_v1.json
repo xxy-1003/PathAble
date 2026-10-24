@@ -1,0 +1,119 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PathAbleBlockedEdgeEventV1",
+  "description": "Standard schema for PathAble blocked-edge events posted from device to cloud intake.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "event_id",
+    "client_id",
+    "timestamp",
+    "edge",
+    "current_node",
+    "destination_node",
+    "local_reroute",
+    "observations",
+    "map_version"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 4
+    },
+    "client_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "edge": {
+      "type": "object",
+      "required": ["from_node", "to_node"],
+      "properties": {
+        "from_node": { "type": "string" },
+        "to_node": { "type": "string" }
+      }
+    },
+    "current_node": {
+      "type": "string"
+    },
+    "destination_node": {
+      "type": "string"
+    },
+    "local_reroute": {
+      "type": "array",
+      "items": { "type": "string" },
+      "minItems": 2
+    },
+    "observations": {
+      "type": "object",
+      "required": [
+        "confidence",
+        "obstacle_classes",
+        "distance_band",
+        "zone_occupancy",
+        "consecutive_blocked_frames"
+      ],
+      "properties": {
+        "confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+        "obstacle_classes": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "distance_band": {
+          "type": "string",
+          "enum": ["near", "medium", "far", "unknown"]
+        },
+        "ground_contact_distance_m": {
+          "type": ["number", "null"],
+          "minimum": 0.0
+        },
+        "zone_occupancy": {
+          "type": "object",
+          "required": ["left", "centre", "right"],
+          "properties": {
+            "left": { "type": "string", "enum": ["clear", "occupied", "unknown"] },
+            "centre": { "type": "string", "enum": ["clear", "occupied", "unknown"] },
+            "right": { "type": "string", "enum": ["clear", "occupied", "unknown"] }
+          }
+        },
+        "moving": { "type": "boolean" },
+        "consecutive_blocked_frames": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "keyframes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["frame_id", "filename", "people_blurred"],
+        "properties": {
+          "frame_id": { "type": "string" },
+          "filename": { "type": "string" },
+          "s3_key": { "type": "string" },
+          "sha256": { "type": "string" },
+          "mime_type": { "type": "string" },
+          "people_blurred": { "type": "boolean", "enum": [true] }
+        }
+      }
+    },
+    "privacy": {
+      "type": "object",
+      "required": ["people_blurred_on_device", "face_recognition_used", "s3_lifecycle_days"],
+      "properties": {
+        "people_blurred_on_device": { "type": "boolean", "enum": [true] },
+        "face_recognition_used": { "type": "boolean", "enum": [false] },
+        "s3_lifecycle_days": { "type": "integer", "enum": [7] }
+      }
+    },
+    "map_version": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
