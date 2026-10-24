@@ -28,6 +28,40 @@ The local stock run is valid only if OpenCV provider evidence passes. It has no
 AWS instance or AMI metadata and makes no cloud comparison. Run output is
 ignored by Git. The synthetic label is persisted in `run.json`.
 
+## Fallback when COOL Marketplace access is unavailable
+
+The runner can still produce a stock-OpenCV baseline on a local machine with
+the recorded 300-keyframe manifest. Keep the same model, frame order, image
+resolution, OpenCV thread settings, and 3 warmup / 5 measured runs. For example:
+
+```bash
+python3 run_benchmark.py \
+  --manifest /data/pathable/manifest.csv \
+  --model ../models/yolo11n-seg.onnx \
+  --provider stock \
+  --dataset-label recorded \
+  --build-label local-stock-opencv \
+  --output runs/local-stock-recorded \
+  --warmups 3 --runs 5
+```
+
+This is a **local stock baseline only**. Preserve its `run.json`, but do not pass
+it to `compare_runs.py` as a COOL/Graviton comparison and do not claim a COOL
+speedup. The comparison remains incomplete until a verified COOL run and a
+stock run on the same Graviton instance type process the identical recorded
+manifest. Synthetic smoke inputs remain mechanics-only and cannot replace the
+recorded set.
+
+If AWS Marketplace access is unavailable but the account can launch EC2, an
+AWS-owned Amazon Linux 2023 Arm64 AMI can host the stock OpenCV configuration on
+`c8g.large`. That is still only the stock side of the comparison; it does not
+provide COOL. Confirm the account plan permits EC2 usage, then capture the
+resolved AMI ID and launch-time price. AWS documents the public AL2023 AMI
+families and their Arm64 naming here: [AL2023 on EC2](https://docs.aws.amazon.com/linux/al2023/ug/ec2.html).
+The AWS Free account plan restricts access to some paid features and hardware,
+so an AWS-owned AMI does not by itself bypass account-plan restrictions. See
+[AWS Free Tier account plans](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/free-tier-plans.html).
+
 ## Fixed recorded input set
 
 Create one private dataset directory with exactly the same 300 recorded
