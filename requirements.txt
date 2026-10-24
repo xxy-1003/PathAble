@@ -6,10 +6,10 @@
 # ArucoDetector API, and SOLVEPNP_IPPE_SQUARE.
 
 # Core computer vision (OpenCV 5)
-opencv-python>=5.0.0
+-r production/v3/requirements-cloud.txt
 
 # Numerical computation
-numpy>=1.26.0
+# NumPy and OpenCV are pinned by requirements-vision.txt via the include above.
 
 # Graph routing (Dijkstra shortest path)
 networkx>=3.4

@@ -24,6 +24,8 @@ class SpeechRecord:
     text: str
     latency_ms: float
     mode: str
+    latency_scope: str = "queue_dispatch"
+    audible_start_latency_ms: float | None = None
 
 
 class VoiceGuidance:

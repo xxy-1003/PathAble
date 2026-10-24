@@ -185,6 +185,8 @@ class MapSyncManager:
         """Marks edge blocked with a temporary time expiry (Section 9.3)."""
         current_time = now or datetime.now(timezone.utc)
         edge_key = self._edge_key(from_node, to_node)
+        if self._edge_metadata.get(edge_key, {}).get("closed_by_ticket"):
+            return self.version
         from datetime import timedelta
         expiry = current_time + timedelta(minutes=expiry_minutes)
         self._temporary_expiries[edge_key] = expiry
@@ -192,6 +194,14 @@ class MapSyncManager:
         if changed:
             return self._bump_version(f"Temporary block on {edge_key} for {expiry_minutes}m")
         return self.version
+
+    def apply_uncertain_hold(self, from_node: str, to_node: str) -> int:
+        """Missing evidence cannot schedule an automatic reopening."""
+        edge_key = self._edge_key(from_node, to_node)
+        self._temporary_expiries.pop(edge_key, None)
+        self._edge_metadata.setdefault(edge_key, {})["hold_reason"] = "evidence_unavailable_or_uncertain"
+        self._set_edge_blocked_state(edge_key, True)
+        return self._bump_version(f"Uncertain hold on {edge_key}; human review or new evidence required")
 
     def apply_lasting_closure(self, from_node: str, to_node: str, ticket_id: str) -> int:
         """Closes edge permanently based on facilities human approval."""

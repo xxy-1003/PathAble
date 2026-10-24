@@ -11,7 +11,7 @@
     <div class="header-content">
       <div class="logo">
         <span class="badge">OpenCV AI Competition 2026 · AWS Graviton</span>
-        <h1>PathAble · Physical Vision Inspection & Living Map</h1>
+        <h1>PathAble · Scripted Workflow Demo & Shared Map</h1>
       </div>
       <div class="header-meta">
         <div class="meta-item">
@@ -19,8 +19,8 @@
           <span id="map-version" class="meta-value">v1</span>
         </div>
         <div class="meta-item">
-          <span class="meta-label">Fast Loop (Laptop):</span>
-          <span class="meta-value status-online">Offline Ready (&le;700ms)</span>
+          <span class="meta-label">Evidence mode:</span>
+          <span id="evidence-mode" class="meta-value">Checking service mode…</span>
         </div>
         <div class="meta-item">
           <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
@@ -36,8 +36,8 @@
       <section class="card card-accent">
         <div class="card-header">
           <div>
-            <h2>1. Fast Loop: Physical Camera & Perception Check</h2>
-            <small style="color:var(--text-secondary)">On-Device (Offline) &middot; OpenCV 5 DNN + 6-Frame Confirmation Buffer</small>
+            <h2>1. Scripted Corridor Replay</h2>
+            <small style="color:var(--text-secondary)">Simulated observations and voice text. This panel does not use a live webcam or provide measured results.</small>
           </div>
           <span class="pill pill-success" id="agent-action-pill">CONTINUE</span>
         </div>
@@ -45,7 +45,7 @@
           <!-- Simulated Camera Feed with YOLO & Zone Overlays -->
           <div class="camera-viewport">
             <div class="camera-overlay">
-              <span class="cam-badge" id="cam-status">Webcam 640x480 &middot; 10 FPS &middot; Node B</span>
+              <span class="cam-badge" id="cam-status">SIMULATION &middot; Example corridor at Node B</span>
               <div id="obstacle-box" class="yolo-box hidden">
                 <span class="yolo-label" id="yolo-label">chair 0.85 &middot; table 0.82</span>
               </div>
@@ -80,7 +80,7 @@
           <div class="speech-bubble" id="speech-bubble">
             <span class="speaker-icon">&#128266;</span>
             <div class="speech-text">
-              <strong id="voice-action">Voice Guidance (pyttsx3):</strong>
+              <strong id="voice-action">Example voice instruction:</strong>
               <p id="voice-message">Path is clear. Proceeding towards Lab D.</p>
             </div>
           </div>
@@ -88,7 +88,7 @@
           <!-- Interactive Physical Simulation Trigger Buttons -->
           <div class="step-buttons">
             <button class="btn btn-primary" onclick="simulatePhysicalObstacleEncounter()">
-              &#9654; <strong>Run Physical Corridor Obstacle Check</strong>
+              &#9654; <strong>Run Scripted Corridor Demo</strong>
               <small>Simulates user approaching Junction B, camera detecting chairs over 6 frames, and rerouting</small>
             </button>
             <button class="btn btn-secondary" onclick="resetToClearCorridor()">

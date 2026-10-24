@@ -23,9 +23,9 @@ class StateRulesTests(unittest.TestCase):
         output = RecheckToolsOutput(
             event_id="evt-1",
             edge=self.edge,
-            detection=DetectionResult(classes=["person"], confidence=0.88, mask_coverage_percent=40.0),
-            motion=MotionResult(is_moving=True, average_flow_magnitude=3.2, motion_type="moving"),
-            clearance=ClearanceResult(corridor_width_m=2.4, free_clearance_m=0.8, meets_ms1184_standard=False),
+            detection=DetectionResult(evidence_status="observed", classes=["person"], confidence=0.88, mask_coverage_percent=40.0),
+            motion=MotionResult(evidence_status="observed", is_moving=True, average_flow_magnitude=3.2, motion_type="moving"),
+            clearance=ClearanceResult(evidence_status="observed", corridor_width_m=2.4, free_clearance_m=0.8, meets_ms1184_standard=False),
             history=[],
         )
         proposal, needs_tiebreaker = CloudStateRulesEngine.evaluate(output)
@@ -38,9 +38,9 @@ class StateRulesTests(unittest.TestCase):
         output = RecheckToolsOutput(
             event_id="evt-2",
             edge=self.edge,
-            detection=DetectionResult(classes=["chair"], confidence=0.75, mask_coverage_percent=35.0),
-            motion=MotionResult(is_moving=False, average_flow_magnitude=0.1, motion_type="static"),
-            clearance=ClearanceResult(corridor_width_m=2.4, free_clearance_m=0.75, meets_ms1184_standard=False),
+            detection=DetectionResult(evidence_status="observed", classes=["chair"], confidence=0.75, mask_coverage_percent=35.0),
+            motion=MotionResult(evidence_status="observed", is_moving=False, average_flow_magnitude=0.1, motion_type="static"),
+            clearance=ClearanceResult(evidence_status="observed", corridor_width_m=2.4, free_clearance_m=0.75, meets_ms1184_standard=False),
             history=[],  # No prior report
         )
         proposal, needs_tiebreaker = CloudStateRulesEngine.evaluate(output)
@@ -53,7 +53,7 @@ class StateRulesTests(unittest.TestCase):
         t0 = datetime(2026, 10, 24, 3, 0, 0, tzinfo=timezone.utc)
         t1 = datetime(2026, 10, 24, 3, 22, 0, tzinfo=timezone.utc)  # 22 mins later
 
-        prior_entry = EdgeHistoryEntry(
+        prior_entry = EdgeHistoryEntry(evidence_mode="recorded",
             timestamp=t0,
             event_id="evt-0193",
             outcome=OutcomeType.UNCERTAIN,
@@ -63,9 +63,9 @@ class StateRulesTests(unittest.TestCase):
         output = RecheckToolsOutput(
             event_id="evt-0205",
             edge=self.edge,
-            detection=DetectionResult(classes=["chair", "dining table"], confidence=0.85, mask_coverage_percent=55.0),
-            motion=MotionResult(is_moving=False, average_flow_magnitude=0.05, motion_type="static"),
-            clearance=ClearanceResult(corridor_width_m=2.4, free_clearance_m=0.6, meets_ms1184_standard=False),
+            detection=DetectionResult(evidence_status="observed", classes=["chair", "dining table"], confidence=0.85, mask_coverage_percent=55.0),
+            motion=MotionResult(evidence_status="observed", is_moving=False, average_flow_magnitude=0.05, motion_type="static"),
+            clearance=ClearanceResult(evidence_status="observed", corridor_width_m=2.4, free_clearance_m=0.6, meets_ms1184_standard=False),
             history=[prior_entry],
         )
         proposal, needs_tiebreaker = CloudStateRulesEngine.evaluate(output, current_time=t1)
@@ -78,9 +78,9 @@ class StateRulesTests(unittest.TestCase):
         output = RecheckToolsOutput(
             event_id="evt-conf",
             edge=self.edge,
-            detection=DetectionResult(classes=["chair"], confidence=0.65, mask_coverage_percent=25.0),
-            motion=MotionResult(is_moving=False, average_flow_magnitude=0.1, motion_type="static"),
-            clearance=ClearanceResult(corridor_width_m=2.4, free_clearance_m=1.60, meets_ms1184_standard=True),
+            detection=DetectionResult(evidence_status="observed", classes=["chair"], confidence=0.65, mask_coverage_percent=25.0),
+            motion=MotionResult(evidence_status="observed", is_moving=False, average_flow_magnitude=0.1, motion_type="static"),
+            clearance=ClearanceResult(evidence_status="observed", corridor_width_m=2.4, free_clearance_m=1.60, meets_ms1184_standard=True),
             history=[],
         )
         proposal, needs_tiebreaker = CloudStateRulesEngine.evaluate(output)

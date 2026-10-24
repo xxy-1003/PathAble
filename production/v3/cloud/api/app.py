@@ -11,6 +11,7 @@ Provides endpoints for:
 from __future__ import annotations
 
 from pathlib import Path
+import os
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Query, status
@@ -20,6 +21,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from ..core.orchestrator import SlowLoopOrchestrator
+from ..core.recheck_tools import CloudRecheckTools
 from ..core.validation import EventValidationError
 from ..schema.models import HumanReviewAction, TicketStatus
 
@@ -42,8 +44,13 @@ app.add_middleware(
 )
 
 # Initialize Orchestrator
+SIMULATION = os.environ.get("PATHABLE_SIMULATION") == "1"
 orchestrator = SlowLoopOrchestrator(
-    initial_map_path=MAP_PATH if MAP_PATH.exists() else None
+    initial_map_path=MAP_PATH if MAP_PATH.exists() else None,
+    simulation=SIMULATION,
+    recheck_tools=None if SIMULATION else CloudRecheckTools(
+        model_path=os.environ.get("PATHABLE_MODEL_PATH"),
+        keyframe_root=os.environ.get("PATHABLE_KEYFRAME_ROOT")),
 )
 
 
@@ -52,6 +59,7 @@ def get_health() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "service": "pathable-slow-loop",
+        "recheck_mode": "simulation" if orchestrator.simulation else "recorded_or_unavailable",
         "map_version": orchestrator.map_sync.version,
         "total_events_ingested": orchestrator.intake_store.count(),
         "pending_tickets": len(orchestrator.approval_mgr.list_tickets(TicketStatus.PENDING)),

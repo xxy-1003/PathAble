@@ -6,7 +6,7 @@ them directly into LocalAgent's deterministic decision engine.
 
 Demonstrates:
   1. Junction localization via ArUco markers (Nodes A-F).
-  2. How an unobstructed corridor is actively established as 'clear' to trigger CONTINUE.
+  2. Conservative unknown zones where free-space evidence is unavailable.
   3. Obstacle avoidance (STEP_ASIDE) and blockage rerouting (REROUTE).
 """
 
@@ -19,6 +19,7 @@ import numpy as np
 
 from calibrated_observation import PerceptionPipeline
 from local_agent import LocalAgent, RouteMap
+from voice import VoiceGuidance
 
 
 BACKENDS = {"auto": cv2.CAP_ANY, "dshow": cv2.CAP_DSHOW, "msmf": cv2.CAP_MSMF}
@@ -101,6 +102,9 @@ def main() -> None:
     parser.add_argument("--model", type=Path, default=Path(__file__).parent / "models" / "yolo11n-seg.onnx")
     parser.add_argument("--camera-json", type=Path, default=Path(__file__).parent / "calibration" / "camera.json")
     parser.add_argument("--floor-json", type=Path, default=Path(__file__).parent / "calibration" / "floor.json")
+    parser.add_argument("--same-pose-verified", action="store_true",
+                        help="Confirm the fixed camera pose matches the surveyed floor calibration")
+    parser.add_argument("--voice-mode", choices=("auto", "tts", "mock"), default="auto")
     args = parser.parse_args()
 
     # Check for model file
@@ -115,30 +119,30 @@ def main() -> None:
     else:
         print(f"Loaded YOLO11n-seg model: {args.model}")
 
-    # If calibration files do not exist yet, generate the verified C920 optical profile
-    if not args.camera_json.is_file() or not args.floor_json.is_file():
-        from calibrate_logitech_c920 import generate_c920_calibration
-        generate_c920_calibration(output_dir=Path(__file__).parent / "calibration", camera_index=args.camera)
-
     if not args.map.is_file():
         parser.error(f"Map graph not found: {args.map}")
 
     route_map = RouteMap.from_file(args.map)
-    agent = LocalAgent(route_map, args.start, args.dest)
+    voice = VoiceGuidance(mode=args.voice_mode)
+    agent = LocalAgent(route_map, args.start, args.dest, voice=voice)
+    print(f"Voice mode: {voice.active_mode}; timing records cover queue dispatch only.")
     print(f"PathAble Agent Initialized: {args.start} -> {args.dest}")
     print(f"Initial Route: {' -> '.join(agent.current_route)}")
 
-    # Initialize Perception Pipeline in live navigation mode (allow_clear=True)
+    # A live camera feed does not establish verified pose or free space by itself.
     pipeline = PerceptionPipeline(
         model_path=args.model if args.model.is_file() else None,
         camera_path=args.camera_json if args.camera_json.is_file() else None,
         floor_path=args.floor_json if args.floor_json.is_file() else None,
-        same_pose_verified=True,
-        allow_clear=True,
+        same_pose_verified=args.same_pose_verified,
     )
+    if not pipeline.projector.ready or not args.same_pose_verified:
+        print("Measured calibration / matching fixed pose unverified: distances remain unknown.")
+    print("No detection leaves free space unknown; this viewer does not validate walking safety.")
 
     capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
     if not capture.isOpened():
+        voice.close()
         parser.error(f"Cannot open camera index {args.camera}")
 
     capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
@@ -182,6 +186,7 @@ def main() -> None:
     finally:
         capture.release()
         cv2.destroyAllWindows()
+        voice.close()
     print("Navigation session closed.")
 
 

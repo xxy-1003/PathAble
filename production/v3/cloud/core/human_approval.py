@@ -59,6 +59,7 @@ class HumanApprovalManager:
         measured_clearance_m: float,
         justification: str,
         keyframes: Optional[List[str]] = None,
+        evidence_mode: str = "unavailable",
     ) -> ApprovalTicket:
         """Creates a pending review ticket for facilities staff.
 
@@ -80,6 +81,7 @@ class HumanApprovalManager:
         ticket_id = f"T-{self._counter}"
 
         ticket = ApprovalTicket(
+            evidence_mode=evidence_mode,
             ticket_id=ticket_id,
             event_id=event_id,
             edge=edge,
@@ -93,9 +95,7 @@ class HumanApprovalManager:
         self._tickets[ticket_id] = ticket
 
         # Fail-safe invariant: edge remains blocked while awaiting human response
-        self.map_sync.apply_temporary_block(
-            edge.from_node, edge.to_node, expiry_minutes=1440  # 24-hour fail-safe hold
-        )
+        self.map_sync.apply_uncertain_hold(edge.from_node, edge.to_node)
 
         logger.info(
             "Created facilities ticket %s for edge %s (fail-safe hold active)",
@@ -190,11 +190,9 @@ class HumanApprovalManager:
                     "Auto-escalated: no response within 24 hours"
                 )
                 # Re-apply fail-safe block so the edge stays closed
-                self.map_sync.apply_temporary_block(
+                self.map_sync.apply_uncertain_hold(
                     ticket.edge.from_node,
                     ticket.edge.to_node,
-                    expiry_minutes=1440,
-                    now=current_time,
                 )
                 escalated.append(ticket)
                 logger.warning(

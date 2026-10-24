@@ -1,199 +1,123 @@
-"""OpenCV 5 Re-Check Tools on Cloud / Graviton (Proposal Section 9.2).
+"""Cloud evidence from configured inference and measurement providers.
 
-Exposes four tools to the cloud agent:
-1. detect(frames): YOLO11n-seg via DNN engine (classes, masks, confidence)
-2. motion(frames): Farneback optical flow on obstacle masks (moving or static)
-3. clearance(frames): free corridor width at ground contact in metres (MS 1184 check)
-4. history(edge): previous events and decisions for the same edge from DynamoDB
+Missing models, recordings, or surveyed clearance remain unknown. Canned
+workflow demonstrations live in simulated_recheck_tools.py and are opt-in.
 """
 
-from __future__ import annotations
-
-import logging
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+import logging
+import math
 
 import cv2
 import numpy as np
 
-from ..schema.models import (
-    ClearanceResult,
-    DetectionResult,
-    EdgeHistoryEntry,
-    EdgeRef,
-    MotionResult,
-    OutcomeType,
-    RecheckToolsOutput,
-)
-
+from ..schema.models import ClearanceResult, DetectionResult, MotionResult, RecheckToolsOutput
 
 logger = logging.getLogger("pathable.cloud.recheck_tools")
 
-# Malaysian Standard MS 1184:2014 minimum accessible clear corridor width: 1.20 m
-MS_1184_MIN_CLEAR_WIDTH_M = 1.20
-DEFAULT_CORRIDOR_WIDTH_M = 2.40
-
 
 class CloudRecheckTools:
-    """Implements the four re-check tools used by the Strands / Cloud Agent."""
-
-    def __init__(self, history_provider=None):
+    def __init__(self, history_provider=None, *, detector=None, model_path=None,
+                 clearance_provider=None, keyframe_root=None):
         self._history_provider = history_provider or {}
+        self.detector = detector
+        if model_path is not None:
+            try:
+                from ...vision import SegmentationDetector
+            except ImportError:  # cloud loaded from production/v3 as top-level package
+                from vision import SegmentationDetector
+            self.detector = SegmentationDetector(model_path)
+        self.clearance_provider = clearance_provider
+        self.keyframe_root = Path(keyframe_root).resolve() if keyframe_root else None
 
-    def detect(
-        self,
-        keyframe_paths: List[str | Path],
-        fallback_classes: Optional[List[str]] = None,
-        fallback_confidence: float = 0.85,
-    ) -> DetectionResult:
-        """Runs YOLO11n-seg through OpenCV 5 DNN engine on keyframes."""
-        detected_classes = list(fallback_classes or ["chair"])
-        confidence = fallback_confidence
-        mask_coverage = 45.0
+    def _frames(self, paths):
+        if not paths:
+            return []
+        frames = []
+        for path in paths:
+            if not Path(path).is_file():
+                return []
+            frame = cv2.imread(str(path), cv2.IMREAD_COLOR)
+            if frame is None:
+                return []
+            frames.append(frame)
+        return frames
 
-        valid_frames = []
-        for path_str in keyframe_paths:
-            path = Path(path_str)
-            if path.exists():
-                img = cv2.imread(str(path))
-                if img is not None:
-                    valid_frames.append(img)
-
-        # If real keyframe images are present, we inspect their properties
-        if valid_frames:
-            # We have verified OpenCV 5 image ingestion
-            logger.info("Re-check detect tool processed %d valid keyframes", len(valid_frames))
-
-        return DetectionResult(
-            classes=detected_classes,
-            confidence=confidence,
-            has_blocking_objects=bool(detected_classes),
-            mask_coverage_percent=mask_coverage,
-        )
-
-    def motion(
-        self,
-        keyframe_paths: List[str | Path],
-        fallback_is_moving: Optional[bool] = None,
-    ) -> MotionResult:
-        """Applies Farneback optical flow across keyframes to classify moving vs static."""
-        valid_frames = []
-        for path_str in keyframe_paths:
-            path = Path(path_str)
-            if path.exists():
-                img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
-                if img is not None:
-                    valid_frames.append(img)
-
-        if len(valid_frames) >= 2:
-            prev = valid_frames[0]
-            nxt = valid_frames[1]
-            if prev.shape != nxt.shape:
-                nxt = cv2.resize(nxt, (prev.shape[1], prev.shape[0]))
-
-            # OpenCV 5 Farneback Optical Flow
-            flow = cv2.calcOpticalFlowFarneback(
-                prev, nxt, None, pyr_scale=0.5, levels=3, winsize=15, iterations=3, poly_n=5, poly_sigma=1.2, flags=0
+    def detect(self, keyframe_paths, fallback_classes=None, fallback_confidence=None):
+        """Actual model inference only; event labels cannot become cloud detections."""
+        unknown = DetectionResult(confidence=0.0, has_blocking_objects=False)
+        frames = self._frames(keyframe_paths)
+        if self.detector is None or not frames:
+            return unknown
+        try:
+            results = [self.detector.detect(frame) for frame in frames]
+            obstacles = [item for result in results for item in result.obstacles]
+            return DetectionResult(
+                evidence_status="observed", classes=sorted({item.name for item in obstacles}),
+                confidence=max((item.confidence for item in obstacles), default=0.0),
+                has_blocking_objects=any(item.coverage[1] >= 0.15 for item in obstacles),
+                mask_coverage_percent=max(result.coverage[1] for result in results) * 100,
             )
-            mag, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-            avg_mag = float(np.mean(mag))
-            is_moving = avg_mag > 2.0
-            return MotionResult(
-                is_moving=is_moving,
-                average_flow_magnitude=avg_mag,
-                motion_type="moving" if is_moving else "static",
-            )
+        except (OSError, ValueError, RuntimeError, cv2.error):
+            logger.exception("Cloud detector failed; evidence remains unknown")
+            return unknown
 
-        # If fallback specified or insufficient frames for optical flow:
-        moving = bool(fallback_is_moving) if fallback_is_moving is not None else False
-        return MotionResult(
-            is_moving=moving,
-            average_flow_magnitude=3.5 if moving else 0.1,
-            motion_type="moving" if moving else "static",
-        )
+    def motion(self, keyframe_paths, fallback_is_moving=None):
+        """Observed frame motion heuristic; insufficient evidence is undetermined."""
+        frames = self._frames(keyframe_paths)
+        if len(frames) < 2 or frames[0].shape != frames[1].shape:
+            return MotionResult()
+        previous, current = [cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) for frame in frames[:2]]
+        flow = cv2.calcOpticalFlowFarneback(previous, current, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+        magnitude, _ = cv2.cartToPolar(flow[..., 0], flow[..., 1])
+        average = float(np.mean(magnitude))
+        if not np.isfinite(average):
+            return MotionResult()
+        moving = average > 2.0
+        return MotionResult(evidence_status="observed", is_moving=moving,
+                            average_flow_magnitude=average, motion_type="moving" if moving else "static")
 
-    def clearance(
-        self,
-        ground_contact_m: Optional[float] = None,
-        occupied_zones: Optional[Dict[str, str]] = None,
-        corridor_width_m: float = DEFAULT_CORRIDOR_WIDTH_M,
-    ) -> ClearanceResult:
-        """Measures free corridor clearance at obstacle's ground line using floor homography.
+    def clearance(self, ground_contact_m=None, occupied_zones=None, corridor_width_m=None,
+                  *, keyframe_paths=()):
+        """Only a trusted server measurement provider can supply metric clearance.
 
-        Checks whether free space meets MS 1184:2014 minimum accessible width (1.20 m).
+        Zone occupancy and obstacle range do not determine corridor free width.
+        The provider must retain its surveyed geometry/source evidence for review.
         """
-        # If all 3 zones are occupied, clearance is negligible
-        if occupied_zones:
-            left = occupied_zones.get("left") == "occupied"
-            centre = occupied_zones.get("centre") == "occupied"
-            right = occupied_zones.get("right") == "occupied"
+        if self.clearance_provider is None or not keyframe_paths:
+            return ClearanceResult()
+        try:
+            result = self.clearance_provider(keyframe_paths)
+        except (OSError, ValueError, RuntimeError):
+            logger.exception("Clearance provider failed; measurement remains unknown")
+            return ClearanceResult()
+        if (not isinstance(result, ClearanceResult) or result.evidence_status != "observed"
+                or result.free_clearance_m is None or not math.isfinite(result.free_clearance_m)
+                or not result.measurement_source or not result.measurement_source.strip()):
+            return ClearanceResult()
+        # Recompute the threshold comparison instead of trusting a caller's bool.
+        return result.model_copy(update={"meets_ms1184_standard": result.free_clearance_m >= 1.20})
 
-            if left and centre and right:
-                free_width = 0.35  # Fully blocked corridor
-            elif centre and (left or right):
-                free_width = 0.75  # Severely constricted corridor (< 1.20m)
-            elif centre and not left and not right:
-                free_width = 1.35  # Moderate obstacle with passable margins on both sides
-            else:
-                free_width = 1.80  # Side obstacle only
-        elif ground_contact_m is not None:
-            # Model clearance based on proximity
-            free_width = max(0.4, min(corridor_width_m, ground_contact_m * 0.7))
-        else:
-            free_width = 0.60
-
-        meets_ms1184 = free_width >= MS_1184_MIN_CLEAR_WIDTH_M
-
-        return ClearanceResult(
-            corridor_width_m=corridor_width_m,
-            free_clearance_m=round(free_width, 2),
-            meets_ms1184_standard=meets_ms1184,
-        )
-
-    def history(self, edge: EdgeRef) -> List[EdgeHistoryEntry]:
-        """Fetches history of reports for this edge from DynamoDB / store."""
-        edge_key = edge.edge_key
+    def history(self, edge):
         if callable(self._history_provider):
-            return self._history_provider(edge_key)
-        if isinstance(self._history_provider, dict):
-            return self._history_provider.get(edge_key, [])
-        return []
+            return self._history_provider(edge.edge_key)
+        return self._history_provider.get(edge.edge_key, [])
 
-    def execute_all(
-        self,
-        event_id: str,
-        edge: EdgeRef,
-        keyframe_paths: List[str | Path],
-        observations_summary: Any,
-    ) -> RecheckToolsOutput:
-        """Executes all 4 re-check tools and gathers structured results."""
-        det = self.detect(
-            keyframe_paths,
-            fallback_classes=observations_summary.obstacle_classes,
-            fallback_confidence=observations_summary.confidence,
-        )
-        mot = self.motion(
-            keyframe_paths,
-            fallback_is_moving=observations_summary.moving,
-        )
-        zones = {
-            "left": observations_summary.zone_occupancy.left.value,
-            "centre": observations_summary.zone_occupancy.centre.value,
-            "right": observations_summary.zone_occupancy.right.value,
-        }
-        clr = self.clearance(
-            ground_contact_m=observations_summary.ground_contact_distance_m,
-            occupied_zones=zones,
-        )
-        hist = self.history(edge)
-
-        return RecheckToolsOutput(
-            event_id=event_id,
-            edge=edge,
-            detection=det,
-            motion=mot,
-            clearance=clr,
-            history=hist,
-            recheck_timestamp=datetime.now(timezone.utc),
-        )
+    def execute_all(self, event_id, edge, keyframe_paths, observations_summary):
+        # Event filenames are untrusted: resolve only inside the configured evidence root.
+        paths = []
+        if self.keyframe_root is not None:
+            for filename in keyframe_paths:
+                path = (self.keyframe_root / filename).resolve()
+                if not path.is_relative_to(self.keyframe_root) or not path.is_file():
+                    paths = []
+                    break
+                paths.append(path)
+        detection = self.detect(paths)
+        motion = self.motion(paths)
+        clearance = self.clearance(keyframe_paths=paths)
+        mode = ("recorded" if all(item.evidence_status == "observed"
+                                  for item in (detection, motion, clearance)) else "unavailable")
+        return RecheckToolsOutput(evidence_mode=mode, event_id=event_id, edge=edge,
+                                  detection=detection, motion=motion, clearance=clearance,
+                                  history=self.history(edge))

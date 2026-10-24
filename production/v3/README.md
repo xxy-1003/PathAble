@@ -1,6 +1,6 @@
-# PathAble v3: local decision core
+# PathAble v3: prototype integration
 
-This is the executable slice of the 18 October 2026 proposal for **Person 1 (Local Navigation and Voice)**.
+This combines the navigation, perception, cloud workflow, benchmark, and evaluation work.
 It follows the one-floor, six-node scope and implements the offline decision table with
 multi-frame blockage confirmation, Dijkstra routing, low-confidence rechecks,
 camera timeout, active perception, and offline voice guidance.
@@ -31,7 +31,30 @@ an active audio output device. It enforces:
 > are **not** claimed to be safe for live guidance until camera calibration, physical floor
 > distance measurements, and moving-camera error have been tested on site with a safety spotter.
 
-## Available cameras
+## Integration fixes and recorded evidence
+
+The live viewer no longer generates calibration from a C920 model name. Use
+`calibrate_camera.py` with the physically measured checkerboard, then
+`calibrate_floor.py` with surveyed floor points. New files record their measured
+calibration method; older generated optical-bench defaults are rejected.
+Verify the ruler measurement, mount, axes, and camera-file hash before use.
+
+From this directory, `python live_navigation.py --camera N --voice-mode mock`
+is a conservative inspection loop. Only add `--same-pose-verified` when the
+current fixed mount matches the surveyed pose. A moving chest camera cannot
+automatically reuse a stationary floor mapping. Unoccupied zones remain unknown
+even with an active detector; absent detections do not establish a clear route.
+The viewer connects the local voice engine, while its mock mode has no audible
+output. `SpeechRecord.latency_ms` is explicitly scoped to queue dispatch;
+`audible_start_latency_ms` remains unavailable until physically measured.
+
+The cloud service defaults to recorded evidence or unknown values. Its scripted
+demo requires `--simulation` and is labelled accordingly. See `cloud/README.md`.
+The evaluation gate reads the recorded benchmark's native `run.json` format;
+physical trials, real calibration, and capture-to-audible-speech timings still
+need to be collected. See `evaluation/measured_data_guide.md`.
+
+## Camera selection
 
 The team's primary camera is now a Logitech USB webcam labelled HD 1080p.
 The exact model has not been confirmed. The laptop's integrated camera is only
@@ -148,5 +171,5 @@ contact outside the measured region, and values close to 1.0 m or 2.5 m
 boundaries yield `unknown`. Those bands are provisional demo settings, not
 measured safety thresholds. A frame with no target-class detection also has
 `unknown` zones: it is **not** proof of an empty corridor. Live walking and
-voice guidance remain disabled until moving-camera error and negative-detection
+voice guidance remain unvalidated until moving-camera error and negative-detection
 reliability have been measured on the actual route.

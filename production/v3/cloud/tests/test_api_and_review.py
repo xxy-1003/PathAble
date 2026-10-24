@@ -35,6 +35,12 @@ class ApiAndReviewIntegrationTests(unittest.TestCase):
         orchestrator.approval_mgr = HumanApprovalManager(orchestrator.map_sync)
         orchestrator.audit = CloudAuditLogger()
         orchestrator.edge_history.clear()
+        from ..core.simulated_recheck_tools import SimulatedRecheckTools
+        orchestrator.simulation = True
+        orchestrator.recheck_tools = SimulatedRecheckTools(history_provider=orchestrator._get_history_for_edge)
+        self.addCleanup(setattr, orchestrator, "simulation", False)
+        from ..core.recheck_tools import CloudRecheckTools
+        self.addCleanup(setattr, orchestrator, "recheck_tools", CloudRecheckTools())
     def test_health_check(self):
         data = get_health()
         self.assertEqual(data["status"], "healthy")
@@ -54,6 +60,7 @@ class ApiAndReviewIntegrationTests(unittest.TestCase):
 
         data = ingest_event(payload)
         self.assertEqual(data["status"], "PROCESSED")
+        self.assertEqual(data["evidence_mode"], "simulated")
         self.assertEqual(data["outcome"], "TEMPORARY")
         self.assertEqual(data["expiry_minutes"], 10)
 

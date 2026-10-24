@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -29,7 +30,10 @@ def main():
     parser.add_argument("--host", default="127.0.0.1", help="Host interface (default 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind (default 8000)")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload on code change")
+    parser.add_argument("--simulation", action="store_true", help="Use explicitly labelled canned demo evidence")
     args = parser.parse_args()
+    if args.simulation:
+        os.environ["PATHABLE_SIMULATION"] = "1"
 
     # Ensure repository root is on sys.path
     repo_root = Path(__file__).resolve().parents[4]

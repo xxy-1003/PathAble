@@ -23,6 +23,7 @@ class CalibratedObservationTests(unittest.TestCase):
         self.camera_path = Path(self.temp.name) / "camera.json"
         self.floor_path = Path(self.temp.name) / "floor.json"
         self.camera = {
+            "calibration_method": "opencv_checkerboard",
             "verified_target_size": True,
             "calibration_target": "phone_screen",
             "mount_description": "Fixed tripod at marked station",
@@ -33,6 +34,7 @@ class CalibratedObservationTests(unittest.TestCase):
             "distortion_coefficients": [0, 0, 0, 0, 0],
         }
         self.floor = {
+            "calibration_method": "surveyed_homography",
             "fixed_mount_verified": True,
             "floor_origin_and_axes": "Measured grid, x east, y north",
             "camera_floor_xy_m": [0.0, 0.0],
@@ -62,6 +64,7 @@ class CalibratedObservationTests(unittest.TestCase):
         self.camera["verified_target_size"] = False
         self.save()
         self.assertFalse(self.projector().ready)
+
         self.camera["verified_target_size"] = True
         self.save()
         self.camera_path.write_text(self.camera_path.read_text() + " ", encoding="utf-8")
@@ -79,6 +82,15 @@ class CalibratedObservationTests(unittest.TestCase):
         self.save()
         self.assertEqual(self.projector().distance_band(
             (470, 240), (640, 480), same_pose_verified=True), "unknown")
+
+    def test_old_generated_calibration_cannot_be_accepted_as_measured(self):
+        self.camera.pop("calibration_method")
+        self.camera["calibration_target"] = "optical_bench"
+        self.save()
+        self.assertFalse(self.projector().ready)
+        self.camera["calibration_method"] = "opencv_checkerboard"
+        self.save()
+        self.assertFalse(self.projector().ready)
 
     def test_adapter_never_invents_clear_path(self):
         projector = self.projector()

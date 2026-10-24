@@ -39,6 +39,7 @@ class CloudStateRulesEngine:
     def evaluate(
         tools_output: RecheckToolsOutput,
         current_time: Optional[datetime] = None,
+        *, allow_simulated: bool = False,
     ) -> Tuple[AgentProposal, bool]:
         """Evaluates tools output and returns (proposal, needs_tiebreaker).
 
@@ -51,6 +52,15 @@ class CloudStateRulesEngine:
         detection = tools_output.detection
         clearance = tools_output.clearance
         history = tools_output.history
+
+        allowed = {"observed", "simulated"} if allow_simulated else {"observed"}
+        if (any(item.evidence_status not in allowed for item in (detection, motion, clearance))
+                or clearance.free_clearance_m is None
+                or motion.average_flow_magnitude is None or motion.motion_type == "undetermined"
+                or not detection.has_blocking_objects or detection.confidence < 0.60):
+            return (AgentProposal(outcome=OutcomeType.UNCERTAIN,
+                                  justification="Re-check evidence is unavailable or simulated. "
+                                                "Keep the edge blocked pending recorded measurement or human review."), False)
 
         # 1. TEMPORARY Rule:
         # Moving object (e.g. person, trolley, moving obstacle)
@@ -96,6 +106,13 @@ class CloudStateRulesEngine:
             # Check history for a previous report >= 15 minutes apart
             qualifying_prior_report = False
             for entry in history:
+                expected_mode = "simulated" if allow_simulated else "recorded"
+                if entry.evidence_mode != expected_mode:
+                    continue
+                if (entry.outcome == OutcomeType.TEMPORARY or entry.clearance_m is None
+                        or entry.clearance_m >= MS_1184_MIN_CLEAR_WIDTH_M
+                        or not set(entry.classes).intersection(detection.classes)):
+                    continue
                 delta_minutes = (now - entry.timestamp).total_seconds() / 60.0
                 if delta_minutes >= LASTING_MIN_REPORT_INTERVAL_MINUTES:
                     qualifying_prior_report = True

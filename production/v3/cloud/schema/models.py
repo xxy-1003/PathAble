@@ -135,27 +135,32 @@ class BlockedEdgeEventV1(BaseModel):
 
 # Cloud Re-check Tools Results (Section 9.2)
 class DetectionResult(BaseModel):
+    evidence_status: Literal["observed", "simulated", "unknown"] = "unknown"
     classes: List[str] = Field(default_factory=list)
     confidence: float = Field(..., ge=0.0, le=1.0)
     has_blocking_objects: bool = True
-    mask_coverage_percent: float = Field(..., ge=0.0, le=100.0)
+    mask_coverage_percent: Optional[float] = Field(None, ge=0.0, le=100.0)
 
 
 class MotionResult(BaseModel):
+    evidence_status: Literal["observed", "simulated", "unknown"] = "unknown"
     is_moving: bool = False
-    average_flow_magnitude: float = Field(0.0, ge=0.0)
-    motion_type: Literal["static", "moving", "undetermined"] = "static"
+    average_flow_magnitude: Optional[float] = Field(None, ge=0.0)
+    motion_type: Literal["static", "moving", "undetermined"] = "undetermined"
 
 
 class ClearanceResult(BaseModel):
-    corridor_width_m: float = Field(2.4, description="Total corridor width in metres")
-    free_clearance_m: float = Field(..., ge=0.0, description="Available walking width")
-    meets_ms1184_standard: bool = Field(
-        ..., description="True if clearance >= 1.20m per MS 1184:2014"
+    evidence_status: Literal["observed", "simulated", "unknown"] = "unknown"
+    measurement_source: Optional[str] = None
+    corridor_width_m: Optional[float] = Field(None, ge=0.0, description="Surveyed corridor width, when available")
+    free_clearance_m: Optional[float] = Field(None, ge=0.0, description="Available walking width, unavailable without a measurement")
+    meets_ms1184_standard: Optional[bool] = Field(
+        None, description="Threshold comparison only when measured clearance is available"
     )
 
 
 class EdgeHistoryEntry(BaseModel):
+    evidence_mode: Literal["recorded", "simulated", "unavailable"] = "unavailable"
     timestamp: datetime
     event_id: str
     outcome: OutcomeType
@@ -164,6 +169,7 @@ class EdgeHistoryEntry(BaseModel):
 
 
 class RecheckToolsOutput(BaseModel):
+    evidence_mode: Literal["recorded", "simulated", "unavailable"] = "unavailable"
     event_id: str
     edge: EdgeRef
     detection: DetectionResult
@@ -198,6 +204,7 @@ class HumanReviewAction(BaseModel):
 
 
 class ApprovalTicket(BaseModel):
+    evidence_mode: Literal["recorded", "simulated", "unavailable"] = "unavailable"
     ticket_id: str = Field(..., description="Unique ticket ID, e.g. 'T-17'")
     event_id: str = Field(..., description="Associated blocked edge event ID")
     edge: EdgeRef

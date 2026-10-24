@@ -17,6 +17,8 @@ class VoiceGuidanceTests(unittest.TestCase):
         self.assertLess(lat, 300.0)  # Must be well within the 300 ms budget
         self.assertEqual(self.voice.get_last_spoken(), "PathAble ready")
         self.assertEqual(len(self.voice.get_history()), 1)
+        self.assertEqual(self.voice.get_history()[0].latency_scope, "queue_dispatch")
+        self.assertIsNone(self.voice.get_history()[0].audible_start_latency_ms)
 
     def test_debouncing_prevents_spamming(self):
         # First speak

@@ -151,6 +151,11 @@ function calculateRouteDistance(route, edges) {
 // PHYSICAL OBSTACLE ENCOUNTER SIMULATION (Fast Loop Frame-by-Frame)
 // -------------------------------------------------------------
 async function simulatePhysicalObstacleEncounter() {
+  const health = await fetchJSON("/api/v1/health");
+  if (health.recheck_mode !== "simulation") {
+    document.getElementById("cam-status").textContent = "Scripted replay requires the server's explicit simulation mode.";
+    return;
+  }
   const box = document.getElementById("obstacle-box");
   const camStatus = document.getElementById("cam-status");
   const yoloLabel = document.getElementById("yolo-label");
@@ -247,7 +252,7 @@ async function simulatePhysicalObstacleEncounter() {
       body: JSON.stringify(payload)
     });
 
-    camStatus.textContent = `[AWS Slow-Loop Accepted] Outcome: ${res.outcome} · Map: v${res.map_version}`;
+    camStatus.textContent = `[${res.evidence_mode} evidence] Outcome: ${res.outcome} · Map: v${res.map_version}`;
     await refreshAll();
   } catch (e) {
     console.error("Failed to post cloud event:", e);
@@ -315,7 +320,7 @@ async function loadTickets() {
           </div>
           <div>
             <span class="ticket-label">Measured Free Clearance</span>
-            <span><strong>${t.measured_clearance_m} m</strong> (MS 1184 min: 1.20 m)</span>
+            <span><strong>${t.measured_clearance_m} m</strong> · ${t.evidence_mode || "unavailable"} evidence (threshold: 1.20 m)</span>
           </div>
           <div>
             <span class="ticket-label">Event ID</span>
@@ -387,6 +392,12 @@ async function loadTraces() {
 }
 
 async function refreshAll() {
+  try {
+    const health = await fetchJSON("/api/v1/health");
+    document.getElementById("evidence-mode").textContent = health.recheck_mode;
+  } catch (error) {
+    document.getElementById("evidence-mode").textContent = "Service mode unavailable";
+  }
   await loadMap();
   await loadTickets();
   await loadTraces();

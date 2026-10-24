@@ -44,8 +44,9 @@ def run_demo():
     print(f"[Device User 1] Initial planned route: {' -> '.join(agent_user1.current_route)}")
 
     # 2. Initialize Cloud Slow-Loop Orchestrator
-    orchestrator = SlowLoopOrchestrator(initial_map_path=MAP_PATH)
-    print(f"[AWS Cloud] Initial shared map version: v{orchestrator.map_sync.version}")
+    print("SIMULATION ONLY: canned observations and clearance; no AWS or physical trial results.")
+    orchestrator = SlowLoopOrchestrator(initial_map_path=MAP_PATH, simulation=True)
+    print(f"[SIMULATED Cloud] Initial shared map version: v{orchestrator.map_sync.version}")
 
     # 3. Time 0.0s - User 1 encounters chairs/table blocking corridor B-C
     print_step("Step 1: First Blockage Encounter (T = 0.0s)")
@@ -54,15 +55,15 @@ def run_demo():
 
     print(f"[Device User 1] REROUTE triggered on edge B-C: Obstacle = {event_1_payload['observations']['obstacle_classes']}")
     print(f"[Device User 1] Dijkstra replans locally: {' -> '.join(event_1_payload['local_reroute'])}")
-    print("[Device User 1] Privacy filter: People blurred with cv.GaussianBlur before upload.")
+    print("[Device User 1] Simulation uses fixture privacy flags; no real people or upload is verified here.")
     print(f"[Device User 1] Event {event_1_payload['event_id']} posted to AWS intake.")
 
     res_1 = orchestrator.process_event(event_1_payload)
-    print(f"[AWS Cloud Intake] Event {res_1['event_id']} processed.")
-    print(f"[AWS Re-Check Tools] Optical flow: static | Measured clearance: 0.60m (MS 1184 min is 1.20m).")
-    print(f"[AWS State Rules] Outcome: {res_1['outcome']} (First static report without history).")
-    print(f"[AWS State Rules] Justification: {res_1['justification']}")
-    print(f"[AWS Shared Map] Edge B-C kept blocked under fail-safe hold. Map version: v{res_1['map_version']}")
+    print(f"[SIMULATED Cloud Intake] Event {res_1['event_id']} processed.")
+    print("[SIMULATED Re-Check] Canned detection and clearance; not a measured corridor result.")
+    print(f"[SIMULATED State Rules] Outcome: {res_1['outcome']} (First static report without history).")
+    print(f"[SIMULATED State Rules] Justification: {res_1['justification']}")
+    print(f"[SIMULATED Shared Map] Edge B-C kept blocked under fail-safe hold. Map version: v{res_1['map_version']}")
 
     # 4. Time +22 min - User 2 encounters the same furniture in corridor B-C
     print_step("Step 2: Second Report Arrives (+22 minutes later)")
@@ -72,16 +73,16 @@ def run_demo():
     print(f"[Device User 2] Rerouting at B-C. Posting second report: {event_2_payload['event_id']}")
     res_2 = orchestrator.process_event(event_2_payload)
 
-    print(f"[AWS Cloud Intake] Event {res_2['event_id']} processed.")
-    print(f"[AWS State Rules] Outcome: {res_2['outcome']} (Static obstruction persistent > 15 minutes).")
-    print(f"[AWS Facilities Ticket] Generated Ticket: {res_2['ticket_id']}")
-    print(f"[AWS Facilities Ticket] Justification: {res_2['justification']}")
+    print(f"[SIMULATED Cloud Intake] Event {res_2['event_id']} processed.")
+    print(f"[SIMULATED State Rules] Outcome: {res_2['outcome']} (Static obstruction persistent > 15 minutes).")
+    print(f"[SIMULATED Facilities Ticket] Generated Ticket: {res_2['ticket_id']}")
+    print(f"[SIMULATED Facilities Ticket] Justification: {res_2['justification']}")
 
     # 5. Time +30 min - Facilities Staff Reviews and Approves Closure
     print_step("Step 3: Facilities Review & Human Approval (T = +30 min)")
     ticket_id = res_2["ticket_id"]
-    print(f"[Facilities Staff] Notification received via SNS for Ticket {ticket_id}.")
-    print(f"[Facilities Staff] Reviewing measured clearance (0.60m < 1.20m) & evidence frames.")
+    print(f"[Facilities Staff] Simulated SNS notification for Ticket {ticket_id}.")
+    print("[SIMULATED Facilities Review] Reviewing example clearance and fixture frames.")
     print("[Facilities Staff] Action: APPROVE CLOSURE.")
 
     ticket, new_version = orchestrator.approval_mgr.review_ticket(
@@ -90,8 +91,8 @@ def run_demo():
         reviewer_id="facilities-lead-01",
         notes="Confirmed corridor B-C is undergoing scheduled partition work. Edge closed.",
     )
-    print(f"[AWS Human Review] Ticket {ticket_id} resolved: {ticket.status.value}")
-    print(f"[AWS Shared Map] Authoritative map updated! New Map Version: v{new_version}")
+    print(f"[SIMULATED Human Review] Ticket {ticket_id} resolved: {ticket.status.value}")
+    print(f"[SIMULATED Shared Map] Authoritative map updated! New Map Version: v{new_version}")
 
     # 6. Next User (User 3) arrives at Entrance A
     print_step("Step 4: Next User Pulls Map v{} at Junction A".format(new_version))
@@ -102,7 +103,7 @@ def run_demo():
     print(f"[Device User 3] Synced latest map (v{user3_map.version}) at Entrance A.")
     print(f"[Device User 3] Edge B-C blocked status in shared map: {user3_map.edges.get(frozenset(('B', 'C')))} (blocked: {frozenset(('B', 'C')) in user3_map.blocked})")
     print(f"[Device User 3] Planned route from entrance: {' -> '.join(agent_user3.current_route)}")
-    print("\n===> SUCCESS: New user is guided along safe route (A -> B -> E -> F -> D) from the start!")
+    print("\n===> SIMULATION COMPLETE: Next example user receives the alternative route (A -> B -> E -> F -> D) from the start!")
     print("=" * 70 + "\n")
 
 

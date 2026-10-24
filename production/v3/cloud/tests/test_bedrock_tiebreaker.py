@@ -22,9 +22,9 @@ class BedrockTieBreakerTests(unittest.TestCase):
         self.tools_output = RecheckToolsOutput(
             event_id="evt-tiebreak",
             edge=self.edge,
-            detection=DetectionResult(classes=["chair"], confidence=0.65, mask_coverage_percent=20.0),
-            motion=MotionResult(is_moving=False, average_flow_magnitude=0.1, motion_type="static"),
-            clearance=ClearanceResult(corridor_width_m=2.4, free_clearance_m=1.60, meets_ms1184_standard=True),
+            detection=DetectionResult(evidence_status="observed", classes=["chair"], confidence=0.65, mask_coverage_percent=20.0),
+            motion=MotionResult(evidence_status="observed", is_moving=False, average_flow_magnitude=0.1, motion_type="static"),
+            clearance=ClearanceResult(evidence_status="observed", corridor_width_m=2.4, free_clearance_m=1.60, meets_ms1184_standard=True),
             history=[],
         )
         self.tiebreaker = BedrockTieBreaker()
@@ -53,11 +53,11 @@ class BedrockTieBreakerTests(unittest.TestCase):
         restricted_output = RecheckToolsOutput(
             event_id="evt-chronic",
             edge=self.edge,
-            detection=DetectionResult(classes=["table", "chairs"], confidence=0.85, mask_coverage_percent=60.0),
-            motion=MotionResult(is_moving=False, average_flow_magnitude=0.0, motion_type="static"),
-            clearance=ClearanceResult(corridor_width_m=2.4, free_clearance_m=0.50, meets_ms1184_standard=False),
+            detection=DetectionResult(evidence_status="observed", classes=["table", "chairs"], confidence=0.85, mask_coverage_percent=60.0),
+            motion=MotionResult(evidence_status="observed", is_moving=False, average_flow_magnitude=0.0, motion_type="static"),
+            clearance=ClearanceResult(evidence_status="observed", corridor_width_m=2.4, free_clearance_m=0.50, meets_ms1184_standard=False),
             history=[
-                EdgeHistoryEntry(
+                EdgeHistoryEntry(evidence_mode="recorded",
                     timestamp=datetime(2026, 10, 24, 2, 0, 0, tzinfo=timezone.utc),
                     event_id="evt-prior",
                     outcome=OutcomeType.LASTING,

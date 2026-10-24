@@ -1,151 +1,84 @@
-# PathAble Cloud Slow-Loop Architecture (v3)
+# PathAble cloud workflow
 
-**Role**: Person 3 — AWS Slow-Loop Workflow  
-**Target Proposal**: OpenCV AI Competition 2026, powered by AWS (Sections 6, 9, 10, 11)  
-**Standard**: MS 1184:2014 (Universal Design in Built Environment — 1.20 m minimum clear corridor width)
+The service supports event intake, map holds, and facilities review. AWS
+provisioning and physical trial performance remain unverified.
 
----
+The default service uses `CloudRecheckTools`. Missing models, recordings,
+motion pairs, or surveyed clearance produce explicit unknown evidence. Client
+class labels and zone occupancy cannot become cloud detection or metric width.
+Unknown evidence keeps an edge blocked without a timer that silently reopens it.
+Repeated unavailable or simulated reports cannot establish a lasting closure.
 
-## 1. Safety & Architecture Overview
+## Install and test
 
-PathAble employs a strict two-loop decoupled architecture:
-- **Fast Loop (Device - Offline)**: Immediate collision avoidance, ArUco junction heading, local Dijkstra reroute, and `STOP` decisions run entirely on the laptop within 700 ms. **Safety never waits on the cloud or network.**
-- **Slow Loop (AWS / Cloud - Asynchronous)**: When a local reroute occurs, a versioned blocked-edge event with 3–5 privacy-blurred keyframes is dispatched to the cloud. The cloud agent re-checks evidence, determines blockage permanence, coordinates human facilities review for lasting closures, and updates the shared map version for subsequent users.
+From the repository root, install the combined requirements and run:
 
-```
-+-----------------------------------------------------------------------------------+
-| FAST LOOP (Device - Runs Offline, <= 700 ms)                                      |
-|  Webcam -> YOLO11n-seg -> ArUco / Homography -> Decision Table -> TTS Speech     |
-|                                     |                                             |
-|                             REROUTE Event                                         |
-|                      (Blurred Keyframes, Privacy OK)                              |
-+-------------------------------------|---------------------------------------------+
-                                      v
-+-----------------------------------------------------------------------------------+
-| SLOW LOOP (AWS - Asynchronous Re-check & Map Sync)                                |
-|                                                                                   |
-|  [Idempotent Intake] <---------------- POST /api/v1/events                        |
-|           |                                                                       |
-|  [Re-Check Tools (OpenCV 5 / Graviton)]                                           |
-|     - detect(frames): YOLO11n-seg DNN engine                                      |
-|     - motion(frames): Farneback optical flow (moving vs static)                   |
-|     - clearance(frames): USAC homography width vs MS 1184 (1.20m min)             |
-|     - history(edge): DynamoDB past reports                                        |
-|           |                                                                       |
-|  [Deterministic State Rules]                                                      |
-|     - TEMPORARY: Moving object -> 10m auto-expiry (no human needed)               |
-|     - UNCERTAIN: Static, 1st report -> Fail-safe hold (await next report)         |
-|     - LASTING: Static across >=2 reports >=15m apart with clearance < 1.20m      |
-|           |                                                                       |
-|     [Tool Conflict?]                                                              |
-|        Yes -> Amazon Bedrock (Nova Lite) Tie-Breaker                              |
-|               -> Lambda Hard Rule Validator (LLM cannot reopen blocked edge)      |
-|           |                                                                       |
-|  [Outcome Execution]                                                              |
-|     - TEMPORARY -> Auto-expiry timer -> Reopens edge -> Bumps Map Version         |
-|     - LASTING   -> Opens Ticket (e.g. T-17) -> Facilities Review                  |
-|                      - APPROVE -> Closes edge permanently -> Bumps Map Version    |
-|                      - REJECT  -> Reopens edge -> Bumps Map Version               |
-|                      - NO RESPONSE -> Fails safe (edge remains blocked)           |
-+-----------------------------------------------------------------------------------+
-```
-
----
-
-## 2. Directory Layout
-
-```
-production/v3/cloud/
-├── README.md                           # This document
-├── schema/
-│   ├── event_schema_v1.json            # JSON Schema Draft-07 for Blocked-Edge Event v1
-│   └── models.py                       # Pydantic v2 data models
-├── fixtures/
-│   ├── event_temporary_person.json     # Moving person on B-C (10m auto-expiry)
-│   ├── event_uncertain_chair.json      # Static chair, 1st report (fail-safe hold)
-│   ├── event_lasting_furniture_1.json  # Table/chair report 1 at T=0m (0.9m clearance)
-│   ├── event_lasting_furniture_2.json  # Table/chair report 2 at T=22m -> triggers LASTING
-│   ├── event_conflicting_observation.json # Static chair with 1.6m clearance (Bedrock tie-breaker)
-│   ├── event_invalid_privacy.json      # Unblurred frame (rejected by validator)
-│   ├── event_invalid_schema.json       # Malformed payload (rejected by validator)
-│   └── keyframes/                      # Synthetic 640x480 test JPEG frames
-├── core/
-│   ├── validation.py                   # Strict schema, graph edge, and privacy validation
-│   ├── intake.py                       # Idempotent intake and payload hash deduplication
-│   ├── recheck_tools.py                # OpenCV 5 Farneback flow, homography clearance, detection
-│   ├── state_rules.py                  # TEMPORARY, UNCERTAIN, LASTING decision rules
-│   ├── bedrock_tiebreaker.py           # Amazon Bedrock Nova Lite & Lambda Hard-Rule Validator
-│   ├── map_sync.py                     # Versioned shared map manager with auto-expiry
-│   ├── human_approval.py               # Facilities tickets (T-17+) & review workflow
-│   ├── audit_logger.py                 # Structured CloudWatch decision trace recorder
-│   └── orchestrator.py                 # Central orchestrator integrating all components
-├── api/
-│   ├── app.py                          # FastAPI REST application
-│   └── static/                         # Interactive Facilities Review & Judge Web Dashboard
-│       ├── index.html                  # Living 6-node SVG map & ticket review cards
-│       ├── dashboard.css               # Clean accessible UI styling
-│       └── dashboard.js                # Dynamic graph renderer and testbed triggers
-├── infra/
-│   ├── template.yaml                   # AWS SAM / CloudFormation serverless template
-│   ├── cost_and_deployment_plan.md     # Itemized < $5.00 cost estimate & budget alarms
-│   └── local_server.py                 # Standalone local execution server
-└── tests/
-    ├── test_schema_and_fixtures.py     # Schema conformity & privacy rule tests
-    ├── test_intake_idempotency.py      # Deduplication & idempotent intake tests
-    ├── test_state_rules.py             # TEMPORARY, UNCERTAIN, LASTING rule tests
-    ├── test_bedrock_tiebreaker.py      # Bedrock conflict resolution & Lambda validator tests
-    ├── test_map_versioning.py          # Map version increment & auto-expiry tests
-    ├── test_human_approval.py          # Facilities APPROVE/REJECT ticket tests
-    ├── test_recheck_tools.py           # OpenCV 5 Farneback optical flow & clearance tests
-    └── test_api_and_review.py          # End-to-end API integration tests
-```
-
----
-
-## 3. Running Locally
-
-### Run Unit & Integration Tests (100% Offline)
 ```powershell
-python -m unittest discover -s production/v3/cloud/tests -t .
+python -m pip install -r requirements.txt
+python -m pytest production/v3 -q
 ```
 
-### Launch the Local Cloud Server & Web Dashboard
+The OpenCV distribution is pinned once in `requirements-vision.txt`; do not
+install a second OpenCV wheel into the same environment.
+
+## Local service and scripted demonstration
+
 ```powershell
 python production/v3/cloud/infra/local_server.py --port 8000
 ```
-Then open your browser:
-- **Interactive Review Dashboard**: [http://127.0.0.1:8000/dashboard/](http://127.0.0.1:8000/dashboard/)
-- **Swagger / OpenAPI Documentation**: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 
----
+The service exposes `/api/v1/events`, `/api/v1/map`, `/api/v1/tickets`, and
+`/api/v1/traces`. `/api/v1/health` reports its evidence mode. Without configured
+measurement providers, re-check results remain unavailable.
 
-## 4. API Specification
+For canned workflow demonstrations, start a separate local process explicitly:
 
-| Method | Endpoint | Description |
-| :--- | :--- | :--- |
-| `POST` | `/api/v1/events` | Ingests blocked-edge events from edge device idempotently. |
-| `GET` | `/api/v1/map` | Returns authoritative shared map graph with edge blocked statuses. |
-| `GET` | `/api/v1/map/version` | Lightweight version check polled by edge devices at junctions. |
-| `GET` | `/api/v1/tickets` | Lists facilities tickets (`?status=PENDING` filter supported). |
-| `GET` | `/api/v1/tickets/{id}` | Returns details of a specific facilities ticket. |
-| `POST` | `/api/v1/tickets/{id}/review` | Facilities staff action: `APPROVE` or `REJECT`. |
-| `GET` | `/api/v1/traces` | Chronological decision trace audit stream (CloudWatch logs). |
-| `GET` | `/api/v1/health` | Health check endpoint. |
+```powershell
+python production/v3/cloud/infra/local_server.py --port 8000 --simulation
+```
 
----
+Then open [the local dashboard](http://127.0.0.1:8000/dashboard/). The corridor
+panel is a scripted animation, not a live webcam. Demo submissions are enabled
+only in the server's simulation mode. Results, traces, and tickets carry a
+`simulated` evidence label. `demo_end_to_end.py` is also explicitly simulated.
+Do not use these values as physical or AWS results, or mix a demo process's map
+state with a real trial process.
 
-## 5. Verification Status
+## Recorded re-check interface
 
-| Component | Status | Verification Evidence |
-| :--- | :--- | :--- |
-| **Event Schema v1 & Fixtures** | **Verified** | 7 fixtures tested against Pydantic models & JSON schema (`test_schema_and_fixtures.py`) |
-| **Idempotent Intake** | **Verified** | Deduplication, payload hash conflict detection, edge indexing verified (`test_intake_idempotency.py`) |
-| **OpenCV 5 Farneback Optical Flow** | **Verified** | Farneback flow on keyframe image pairs verified (`test_recheck_tools.py`) |
-| **MS 1184:2014 Clearance Engine** | **Verified** | Ground-line homography clearance calculations verified against 1.20m standard (`test_recheck_tools.py`) |
-| **State Decision Rules** | **Verified** | TEMPORARY (10m), UNCERTAIN (hold), LASTING (>15m, 2 reports) verified (`test_state_rules.py`) |
-| **Bedrock Tie-Breaker & Validator** | **Verified** | Conflict detection, LLM reasoning simulator, and hard-rule validator override verified (`test_bedrock_tiebreaker.py`) |
-| **Map Versioning & Auto-Expiry** | **Verified** | Version bumping, temporary block expiration, lasting closures verified (`test_map_versioning.py`) |
-| **Facilities Human Review** | **Verified** | Ticket creation (T-17+), fail-safe invariant, APPROVE/REJECT map synchronization verified (`test_human_approval.py`) |
-| **FastAPI REST Service** | **Verified** | Complete API suite and HTTP responses verified (`test_api_and_review.py`) |
-| **Review Web Dashboard** | **Verified** | Interactive SVG 6-node map, review cards, fixture simulation testbed (`dashboard.html / js / css`) |
-| **Live AWS Provisioning** | **Unverified (Pending Approval)** | Blocked by explicit cost and deployment approval safeguard. Concrete plan prepared in `infra/cost_and_deployment_plan.md` |
+Configure `PATHABLE_MODEL_PATH` with the ONNX model and
+`PATHABLE_KEYFRAME_ROOT` with the private local evidence directory before
+starting the default server. Event filenames resolve only within this directory.
+Unreadable or escaped paths produce unavailable evidence.
+
+Detection calls the shared `SegmentationDetector` on decoded frames. The
+motion tool computes a frame-flow heuristic from real pairs; camera motion
+and actual moving objects still require ground-truth evaluation.
+
+Metric free width requires a trusted server-side `clearance_provider` passed
+to `CloudRecheckTools`. It receives resolved keyframe paths and returns a
+`ClearanceResult` with observed evidence, surveyed `free_clearance_m`, and a
+`measurement_source` audit reference. Until that provider and its physical
+geometry are verified, width and threshold comparison stay null. Zone labels,
+object range, and a projected bounding-box span are insufficient to assert
+accessible free width. The 1.20 m comparison is a project rule; this prototype
+does not certify compliance with an accessibility standard.
+
+Use `SlowLoopOrchestrator(recheck_tools=tools)` to supply configured tools.
+This preserves the workflow while keeping unavailable evidence visible.
+
+## Rule and review boundaries
+
+With observed evidence, rules support temporary motion reports, uncertainty,
+and repeated restricted-clearance reports eligible for facilities review.
+Simulation can exercise those branches only with an explicit opt-in. History
+records carry their evidence origin; simulated or unavailable history cannot
+qualify a recorded lasting-closure decision. Pending or expired human-review
+holds do not automatically reopen. Temporary reports cannot override a closure
+already approved by facilities staff.
+
+The offline Bedrock tie-breaker is a simulator and identifies its model as
+`offline-tiebreaker-simulator`; it is not proof of a deployed AWS model call.
+The infrastructure template is a plan, not deployment evidence. Keep the
+submission report awaiting evidence until recordings, labels, calibration,
+latency, and the recorded benchmark files pass the evaluation gate and review.

@@ -37,6 +37,7 @@ class SlowLoopOrchestrator:
         self,
         initial_map_path: Optional[str | Path] = None,
         bedrock_client=None,
+        *, simulation: bool = False, recheck_tools=None,
     ):
         self.audit = CloudAuditLogger()
         self.intake_store = IdempotentIntakeStore()
@@ -44,7 +45,15 @@ class SlowLoopOrchestrator:
         self.approval_mgr = HumanApprovalManager(self.map_sync)
         self.edge_history: Dict[str, List[EdgeHistoryEntry]] = {}
 
-        self.recheck_tools = CloudRecheckTools(history_provider=self._get_history_for_edge)
+        self.simulation = simulation
+        if recheck_tools is not None:
+            self.recheck_tools = recheck_tools
+            self.recheck_tools._history_provider = self._get_history_for_edge
+        elif simulation:
+            from .simulated_recheck_tools import SimulatedRecheckTools
+            self.recheck_tools = SimulatedRecheckTools(history_provider=self._get_history_for_edge)
+        else:
+            self.recheck_tools = CloudRecheckTools(history_provider=self._get_history_for_edge)
         self.state_rules = CloudStateRulesEngine()
         self.tiebreaker = BedrockTieBreaker(aws_client=bedrock_client)
         self.validator = LambdaHardRuleValidator()
@@ -99,16 +108,19 @@ class SlowLoopOrchestrator:
             "COMPLETED",
             {
                 "motion": tools_output.motion.motion_type,
-                "flow_magnitude": round(tools_output.motion.average_flow_magnitude, 2),
+                "flow_magnitude": tools_output.motion.average_flow_magnitude,
                 "clearance_m": tools_output.clearance.free_clearance_m,
                 "meets_ms1184": tools_output.clearance.meets_ms1184_standard,
                 "prior_reports": len(tools_output.history),
+                "evidence_mode": tools_output.evidence_mode,
+                "detection_status": tools_output.detection.evidence_status,
+                "clearance_status": tools_output.clearance.evidence_status,
             },
         )
 
         # 4. Evaluate Cloud State Rules
         proposal, needs_tiebreaker = self.state_rules.evaluate(
-            tools_output, current_time=event.timestamp
+            tools_output, current_time=event.timestamp, allow_simulated=self.simulation
         )
 
         # 5. Language Model Tie-Breaker if tools conflict (Section 9.4)
@@ -121,7 +133,7 @@ class SlowLoopOrchestrator:
             )
             raw_proposal = self.tiebreaker.resolve_conflict(tools_output)
             # Lambda Hard Rule Validator check
-            proposal = self.validator.validate_and_sanitize(raw_proposal, tools_output)
+            proposal = self.validator.validate_and_sanitize(raw_proposal, tools_output, allow_simulated=self.simulation)
             self.audit.log(
                 event.event_id,
                 "VALIDATOR",
@@ -154,6 +166,7 @@ class SlowLoopOrchestrator:
                 measured_clearance_m=tools_output.clearance.free_clearance_m,
                 justification=proposal.justification,
                 keyframes=[kf.filename for kf in event.keyframes],
+                evidence_mode=tools_output.evidence_mode,
             )
             ticket_id = ticket.ticket_id
             current_map_version = self.map_sync.version
@@ -166,8 +179,8 @@ class SlowLoopOrchestrator:
 
         elif proposal.outcome == OutcomeType.UNCERTAIN:
             # Fail-safe: edge remains blocked for safety; recheck on next report
-            current_map_version = self.map_sync.apply_temporary_block(
-                event.edge.from_node, event.edge.to_node, expiry_minutes=60, now=event.timestamp
+            current_map_version = self.map_sync.apply_uncertain_hold(
+                event.edge.from_node, event.edge.to_node
             )
             self.audit.log(
                 event.event_id,
@@ -178,6 +191,7 @@ class SlowLoopOrchestrator:
 
         # 7. Record to edge history for subsequent reports
         history_entry = EdgeHistoryEntry(
+            evidence_mode=tools_output.evidence_mode,
             timestamp=event.timestamp,
             event_id=event.event_id,
             outcome=proposal.outcome,
@@ -188,6 +202,8 @@ class SlowLoopOrchestrator:
 
         # 8. Store result in idempotent intake store
         response_data = {
+            "evidence_mode": tools_output.evidence_mode,
+            "recheck": tools_output.model_dump(mode="json"),
             "status": "PROCESSED",
             "event_id": event.event_id,
             "edge": event.edge.edge_key,

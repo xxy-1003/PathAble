@@ -1,4 +1,4 @@
-"""Unit tests demonstrating how corridors are established as clear in PathAble v3."""
+"""Regression tests: camera model defaults and no detections are not evidence."""
 
 import hashlib
 import json
@@ -21,9 +21,8 @@ class ClearCorridorEstablishmentTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory(dir=root)
         self.addCleanup(self.temp.cleanup)
 
-        # Generate verified C920 calibration
-        self.camera_path, self.floor_path = generate_c920_calibration(Path(self.temp.name))
-        self.projector = FloorProjector(self.camera_path, self.floor_path)
+        self.projector = FloorProjector(Path(self.temp.name) / "camera.json",
+                                        Path(self.temp.name) / "floor.json")
 
         # 6-node prototype map
         map_data = {
@@ -41,17 +40,15 @@ class ClearCorridorEstablishmentTests(unittest.TestCase):
         self.route_map = RouteMap(map_data)
         self.agent = LocalAgent(self.route_map, "A", "D")
 
-    def test_logitech_c920_calibration_is_ready_and_valid(self):
-        """Verify that Logitech C920 calibration passes all cryptographic and geometric checks."""
-        self.assertTrue(self.projector.ready)
-        self.assertEqual(self.projector.image_size, (640, 480))
-        # Point inside lower 60% floor region returns finite distance in metres
+    def test_camera_model_name_cannot_generate_verified_calibration(self):
+        with self.assertRaisesRegex(ValueError, "cannot be generated"):
+            generate_c920_calibration(Path(self.temp.name))
+        self.assertEqual(list(Path(self.temp.name).iterdir()), [])
+        self.assertFalse(self.projector.ready)
         dist = self.projector.distance_metres((320, 360), (640, 480), same_pose_verified=True)
-        self.assertIsNotNone(dist)
-        self.assertGreater(dist, 0.2)
+        self.assertIsNone(dist)
 
-    def test_unobstructed_corridor_establishes_clear_and_triggers_continue(self):
-        """When no obstacles occupy the center walking path, corridor is established as clear."""
+    def test_no_detection_does_not_authorize_continue_even_with_legacy_flag(self):
         # Unobstructed vision result (0% coverage across all zones)
         clear_vision = VisionResult(obstacles=(), coverage=(0.0, 0.0, 0.0), inference_ms=45.0)
 
@@ -66,17 +63,15 @@ class ClearCorridorEstablishmentTests(unittest.TestCase):
             allow_clear=True,
         )
 
-        self.assertEqual(obs.centre, "clear")
-        self.assertEqual(obs.left, "clear")
-        self.assertEqual(obs.right, "clear")
-        self.assertEqual(obs.distance, "far")
-        self.assertGreaterEqual(obs.confidence, 0.60)
+        self.assertEqual(obs.centre, "unknown")
+        self.assertEqual(obs.left, "unknown")
+        self.assertEqual(obs.right, "unknown")
+        self.assertEqual(obs.distance, "unknown")
+        self.assertEqual(obs.confidence, 0.0)
         self.assertEqual(obs.node, "A")
 
-        # Pass to LocalAgent -> must return CONTINUE
         decision = self.agent.observe(obs)
-        self.assertEqual(decision.action, "CONTINUE")
-        self.assertEqual(self.agent.low_confidence_rechecks, 0)
+        self.assertNotEqual(decision.action, "CONTINUE")
 
     def test_rerouted_corridor_establishes_clear_after_blockage(self):
         """After a reroute, the agent waits until the new corridor is confirmed clear."""

@@ -27,7 +27,10 @@ class FloorProjector:
             camera_bytes = Path(camera_path).read_bytes()
             camera = json.loads(camera_bytes)
             floor = json.loads(Path(floor_path).read_text(encoding="utf-8"))
-            if (camera.get("verified_target_size", camera.get("verified_print_size")) is not True
+            if (camera.get("calibration_method") != "opencv_checkerboard"
+                    or camera.get("calibration_target") not in {"printed_board", "phone_screen"}
+                    or floor.get("calibration_method") != "surveyed_homography"
+                    or camera.get("verified_target_size", camera.get("verified_print_size")) is not True
                     or not camera.get("mount_description")
                     or floor.get("fixed_mount_verified") is not True
                     or not isinstance(floor.get("floor_origin_and_axes"), str)
@@ -120,15 +123,11 @@ def observation_from_vision(
 ) -> Observation:
     """Produce an observation for review/replay, preserving fail-closed behavior.
 
-    When allow_clear is True (live navigation), zones with < 0.15 obstacle coverage
-    and no obstacle in the walking path are marked as 'clear', allowing the agent
-    to establish a clear corridor and decide CONTINUE.
+    The legacy allow_clear argument is retained for callers but cannot promote
+    absent detections into free-space evidence. Unoccupied zones remain unknown.
     """
     occupied = result.occupied
-    if allow_clear:
-        zones = tuple("occupied" if value else "clear" for value in occupied)
-    else:
-        zones = tuple("occupied" if value else "unknown" for value in occupied)
+    zones = tuple("occupied" if value else "unknown" for value in occupied)
 
     centre_obstacles = [item for item in result.obstacles if item.coverage[1] >= 0.15]
     distances = [
@@ -149,12 +148,8 @@ def observation_from_vision(
         confidence = max((item.confidence for item in centre_obstacles), default=0.0)
     else:
         name = None
-        if allow_clear:
-            distance = "far"
-            confidence = 1.0
-        else:
-            distance = "unknown"
-            confidence = 0.0
+        distance = "unknown"
+        confidence = 0.0
 
     return Observation(timestamp, name, confidence, *zones, distance, moving=moving, node=node)
 

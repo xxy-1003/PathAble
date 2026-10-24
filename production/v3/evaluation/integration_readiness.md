@@ -1,23 +1,45 @@
-# Integration review — 24 October 2026
+# Integration fixes — 24 October 2026
 
-The teammate branches can be combined locally without file conflicts, but the
-shared integration is held pending the following evidence and interface fixes.
-No local integration merge from this review has been pushed.
+The integration-fixes branch combines the checked teammate heads:
+`e3f0386` navigation, `463ce76` perception, `3d2df3a` cloud,
+`d7cfd6a` benchmark (already in v3 `71aed18`), and `51c8ee3` evaluation.
 
-| Owner | Checked branch head | Required follow-up |
-| --- | --- | --- |
-| Person 1 | `e3f0386` navigation | `voice.py` measures queue dispatch, not capture-to-audible-speech latency. Retain it as a component measurement; collect synchronized full-pipeline timings for the submission. |
-| Person 2 | `463ce76` perception | `calibrate_logitech_c920.py` writes fixed intrinsics, RMS, floor homography, and held-out error values while labelling them verified. `live_navigation.py` invokes it automatically and sets `same_pose_verified=True`. Require real calibration and explicit pose confirmation before treating any distance as measured. The `allow_clear` path also promotes absent detections to clear with confidence 1.0; this needs validation rather than being counted as evidence of a clear route. |
-| Person 3 | `3d2df3a` cloud | `CloudRecheckTools.detect()` returns supplied/fallback classes and fixed coverage instead of running the model. `clearance()` returns hardcoded widths from zone labels. Mark these outputs as simulated or replace them with measured inference and geometry before using them in physical evaluation. |
-| Person 4 | `d7cfd6a`, merged into v3 `71aed18` | The benchmark source is integrated. Its README says the recorded 300-keyframe data and AWS results are still absent. A local stock baseline cannot establish a COOL speedup. |
-| Person 5 | evaluation branch | The measured gate now reads native benchmark records, preserves missing cost values, requires capture-to-audible-speech latency, and records review of real calibration and absence of simulated outputs. Physical evidence is still required. |
+The source issues from the initial review have been corrected:
 
-The initial combined test attempt could not verify the full suite: this review
-environment lacks OpenCV, FastAPI, and NetworkX, and default temporary-file
-locations were inaccessible. These are environment limitations, not evidence
-that teammate algorithms fail. Person 5's dependency-free evaluation tests are
-run separately. Software tests and a conflict-free merge do not establish
-physical trial performance.
+| Area | Corrected behavior |
+| --- | --- |
+| Calibration | No camera-model-based generation. Real checkerboard and surveyed floor files record their calibration methods. Old generated defaults are rejected; matching pose needs an explicit flag. |
+| Perception | No detections leave zones and distance unknown, including callers using the legacy allow_clear option. |
+| Voice | The live inspection loop connects the voice engine. Speech timing identifies queue dispatch explicitly and leaves audible-start latency unavailable. |
+| Cloud | The normal tools use configured inference or explicit unknown evidence. Metric width requires a trusted measurement provider with a source reference. Canned values exist only in the opt-in simulator. |
+| Rule engine | Simulated or unavailable evidence cannot qualify a recorded decision. Uncertain and human-review holds do not reopen on a timer; temporary reports cannot downgrade an approved closure. |
+| Dashboard | The corridor animation is labelled scripted. Demo intake requires simulation mode. Responses, traces, and tickets expose evidence origin. |
+| Evaluation | Native benchmark records are checked and missing prices stay unavailable. Measured reports require reviewed physical evidence and capture-to-audible-speech timing. |
 
-Merge after the issues above are resolved and the relevant combined checks
-pass. Keep trial footage, participant records, and generated reports private.
+## Verification and remaining evidence
+
+Verified on the combined fix branch: 182 tests passed; the mock voice replay,
+explicitly simulated cloud replay, in-process HTTP smoke check, and dashboard
+JavaScript syntax check passed. One existing HTTP status deprecation warning
+does not affect those results. These are software checks only.
+
+Run the combined checks from the repository root after installing requirements:
+
+```powershell
+python -m pytest production/v3 -q
+python production/v3/replay_demo.py --voice-mode mock
+python -m production.v3.cloud.demo_end_to_end
+```
+
+Software integration checks do not supply physical trial evidence. The team
+still needs actual checkerboard and surveyed-floor calibration, route footage
+and ground-truth labels, synchronized capture-to-audible-speech measurements,
+a verified cloud clearance provider, and the recorded AWS/COOL benchmark runs.
+The default cloud service remains unavailable where those providers are absent.
+The legacy `production_server.py` dashboard is a separate heuristic prototype;
+do not use its box-size distance bands as measured floor distance or its UI as
+the v3 physical evaluation log.
+
+The evaluation report must remain `AWAITING_PHYSICAL_EVIDENCE` until the real
+package and named human review pass. See `measured_data_guide.md` for the exact
+handoff. Do not replace missing data with simulator output to obtain a score.

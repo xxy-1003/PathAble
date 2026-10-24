@@ -26,14 +26,24 @@ class RecheckToolsTests(unittest.TestCase):
     def test_clearance_calculation_fully_blocked(self):
         zones = {"left": "occupied", "centre": "occupied", "right": "occupied"}
         res = self.tools.clearance(occupied_zones=zones)
-        self.assertEqual(res.free_clearance_m, 0.35)
-        self.assertFalse(res.meets_ms1184_standard)
+        self.assertIsNone(res.free_clearance_m)
+        self.assertIsNone(res.meets_ms1184_standard)
+        self.assertEqual(res.evidence_status, "unknown")
 
     def test_clearance_calculation_clear_path(self):
         zones = {"left": "clear", "centre": "clear", "right": "occupied"}
         res = self.tools.clearance(occupied_zones=zones)
-        self.assertEqual(res.free_clearance_m, 1.80)
-        self.assertTrue(res.meets_ms1184_standard)
+        self.assertIsNone(res.free_clearance_m)
+        self.assertIsNone(res.meets_ms1184_standard)
+
+    def test_missing_frames_do_not_become_fallback_detections_or_static_motion(self):
+        detection = self.tools.detect([], fallback_classes=["chair"], fallback_confidence=0.99)
+        self.assertEqual(detection.classes, [])
+        self.assertEqual(detection.evidence_status, "unknown")
+        self.assertIsNone(detection.mask_coverage_percent)
+        motion = self.tools.motion([], fallback_is_moving=False)
+        self.assertEqual(motion.motion_type, "undetermined")
+        self.assertIsNone(motion.average_flow_magnitude)
 
 
 if __name__ == "__main__":

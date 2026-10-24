@@ -129,6 +129,7 @@ def main() -> None:
     if rms > 1.5:
         raise SystemExit(f"Calibration rejected: RMS reprojection error {rms:.3f} px exceeds 1.5 px")
     result = {
+        "calibration_method": "opencv_checkerboard",
         "camera_index": args.camera,
         "backend": args.backend,
         "image_size_px": list(frame_size),

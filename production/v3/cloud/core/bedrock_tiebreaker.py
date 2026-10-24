@@ -33,6 +33,10 @@ class BedrockTieBreaker:
         keyframe_summaries: Optional[list] = None,
     ) -> AgentProposal:
         """Resolves tool conflict using Amazon Nova Lite or deterministic fallback."""
+        if tools_output.clearance.free_clearance_m is None or tools_output.motion.average_flow_magnitude is None:
+            return AgentProposal(outcome=OutcomeType.UNCERTAIN,
+                                 justification="Recorded clearance or motion evidence is missing. "
+                                               "Keep the edge blocked pending measurement or human review.")
         prompt = self._build_prompt(tools_output, keyframe_summaries)
 
         # If real Bedrock client is configured and available
@@ -121,8 +125,17 @@ class LambdaHardRuleValidator:
     def validate_and_sanitize(
         proposal: AgentProposal,
         tools_output: RecheckToolsOutput,
+        *, allow_simulated: bool = False,
     ) -> AgentProposal:
         """Validates proposal against non-negotiable safety rules and sanitizes if violated."""
+        allowed = {"observed", "simulated"} if allow_simulated else {"observed"}
+        if (any(item.evidence_status not in allowed for item in
+                (tools_output.detection, tools_output.motion, tools_output.clearance))
+                or tools_output.clearance.free_clearance_m is None
+                or tools_output.motion.average_flow_magnitude is None):
+            return AgentProposal(outcome=OutcomeType.UNCERTAIN,
+                                 justification="Recorded re-check evidence is unavailable. "
+                                               "Keep this edge blocked for further measurement or human review.")
         # Hard Rule 1: The language model cannot approve a lasting closure
         if proposal.outcome == OutcomeType.LASTING and not proposal.requires_facilities_approval:
             logger.warning("Hard Rule Violation: LLM attempted to mark lasting closure without facilities review.")
@@ -137,7 +150,10 @@ class LambdaHardRuleValidator:
 
         # Hard Rule 2: If physical clearance is severely restricted (<1.2m) and multiple static reports exist,
         # the model CANNOT downgrade it to TEMPORARY or reopen it.
-        has_lasting_history = len(tools_output.history) >= 1
+        expected_mode = "simulated" if allow_simulated else "recorded"
+        has_lasting_history = any(entry.evidence_mode == expected_mode
+                                  and entry.clearance_m is not None and entry.clearance_m < 1.20
+                                  for entry in tools_output.history)
         if not tools_output.clearance.meets_ms1184_standard and has_lasting_history:
             if proposal.outcome == OutcomeType.TEMPORARY:
                 logger.warning("Hard Rule Override: Refusing TEMPORARY downgrade on chronically blocked edge.")
