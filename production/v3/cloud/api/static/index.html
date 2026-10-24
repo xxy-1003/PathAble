@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PathAble Cloud Slow-Loop & Facilities Dashboard</title>
+  <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <span class="badge">OpenCV AI Competition 2026</span>
+        <h1>PathAble · AWS Slow-Loop & Facilities Review</h1>
+      </div>
+      <div class="header-meta">
+        <div class="meta-item">
+          <span class="meta-label">Map Version:</span>
+          <span id="map-version" class="meta-value">v1</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Orchestrator:</span>
+          <span class="meta-value status-online">Active</span>
+        </div>
+        <div class="meta-item">
+          <button id="btn-refresh" class="btn btn-secondary">Refresh</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- Top Row: Map Graph & Test Fixture Triggers -->
+    <div class="grid grid-2">
+      <!-- 6-Node Prototype Map Card -->
+      <section class="card">
+        <div class="card-header">
+          <h2>FTSM 6-Node Living Map (Dijkstra Graph)</h2>
+          <span class="pill" id="map-edges-status">6 Edges</span>
+        </div>
+        <div class="card-body">
+          <div id="graph-container">
+            <svg id="map-svg" viewBox="0 0 600 280"></svg>
+          </div>
+          <div class="map-legend">
+            <div class="legend-item"><span class="dot dot-open"></span> Passable (Open)</div>
+            <div class="legend-item"><span class="dot dot-blocked"></span> Blocked / Rerouting</div>
+            <div class="legend-item"><span class="dot dot-node"></span> Junction (ArUco ID)</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Test Intake & Simulation Panel -->
+      <section class="card">
+        <div class="card-header">
+          <h2>Simulate Blocked-Edge Intake</h2>
+          <span class="pill">Judge Testbed</span>
+        </div>
+        <div class="card-body">
+          <p class="description">
+            Post pre-validated event fixtures directly to <code>POST /api/v1/events</code> to test state rules and Bedrock tie-breaking.
+          </p>
+          <div class="button-group">
+            <button class="btn btn-fixture" onclick="postFixture('temp')">
+              <strong>1. Temporary Obstacle</strong>
+              <small>Moving person on B-C (10m auto-expiry)</small>
+            </button>
+            <button class="btn btn-fixture" onclick="postFixture('uncertain')">
+              <strong>2. Uncertain Obstacle</strong>
+              <small>Static chair, 1st report (fail-safe hold)</small>
+            </button>
+            <button class="btn btn-fixture" onclick="postFixture('lasting_1')">
+              <strong>3. Lasting Furniture (Report 1)</strong>
+              <small>Table & chairs at T=0m (0.9m clearance)</small>
+            </button>
+            <button class="btn btn-fixture" onclick="postFixture('lasting_2')">
+              <strong>4. Lasting Furniture (Report 2)</strong>
+              <small>Table & chairs at T=22m &rarr; Creates Ticket</small>
+            </button>
+            <button class="btn btn-fixture" onclick="postFixture('conflict')">
+              <strong>5. Bedrock Tie-Breaker</strong>
+              <small>Chair with 1.6m clearance (conflict check)</small>
+            </button>
+          </div>
+          <div id="intake-result" class="result-box hidden"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Middle Row: Facilities Approval Review Queue -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Facilities Approval Review Queue (Section 9.5)</h2>
+        <span class="pill pill-warning" id="pending-ticket-count">0 Pending</span>
+      </div>
+      <div class="card-body">
+        <div id="tickets-container">
+          <p class="placeholder-text">No pending facilities tickets. All corridor edges are verified safe.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Bottom Row: CloudWatch Decision Traces -->
+    <section class="card">
+      <div class="card-header">
+        <h2>Live Decision Trace Stream (CloudWatch Audit Trail)</h2>
+        <span class="pill" id="trace-count">0 Events</span>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table" id="traces-table">
+            <thead>
+              <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Event ID</th>
+                <th>Component</th>
+                <th>Action</th>
+                <th>Trace Details</th>
+              </tr>
+            </thead>
+            <tbody id="traces-tbody">
+              <tr><td colspan="5" class="text-center">No trace events recorded yet.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>PathAble Slow-Loop Agent · OpenCV 5 &middot; AWS Graviton &middot; MS 1184:2014 Compliance</p>
+  </footer>
+
+  <script src="dashboard.js"></script>
+</body>
+</html>
