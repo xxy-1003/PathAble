@@ -15,6 +15,8 @@ from pydantic import ValidationError
 from ..schema.models import BlockedEdgeEventV1
 
 
+from datetime import datetime, timezone
+
 VALID_NODES = {"A", "B", "C", "D", "E", "F"}
 VALID_EDGES = {
     frozenset(("A", "B")),
@@ -33,8 +35,69 @@ class EventValidationError(Exception):
         super().__init__(f"{message}: {'; '.join(self.errors)}")
 
 
+def normalize_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalizes convenience events emitted by LocalAgent.create_cloud_event into Schema v1."""
+    if "schema_version" not in payload and "edge" in payload:
+        edge = payload.get("edge", [])
+        if isinstance(edge, (list, tuple)) and len(edge) == 2:
+            edge_obj = {"from_node": edge[0], "to_node": edge[1]}
+        elif isinstance(edge, dict):
+            edge_obj = edge
+        else:
+            edge_obj = {"from_node": "B", "to_node": "C"}
+
+        zones = payload.get("zones", {})
+        classes = []
+        if payload.get("obstacle_class"):
+            classes.append(payload["obstacle_class"])
+        elif payload.get("obstacle_classes"):
+            classes = list(payload["obstacle_classes"])
+        else:
+            classes = ["obstacle"]
+
+        ts = payload.get("timestamp")
+        if isinstance(ts, (int, float)):
+            ts_iso = datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+        else:
+            ts_iso = str(ts or datetime.now(timezone.utc).isoformat())
+
+        normalized = {
+            "schema_version": "1.0.0",
+            "event_id": str(payload.get("event_id", f"e-{int(datetime.now().timestamp()*1000)}")),
+            "client_id": str(payload.get("client_id", "laptop-device-01")),
+            "timestamp": ts_iso,
+            "edge": edge_obj,
+            "current_node": payload.get("current_node", edge_obj.get("from_node", "B")),
+            "destination_node": payload.get("destination", payload.get("destination_node", "D")),
+            "local_reroute": payload.get("route", payload.get("local_reroute", ["B", "E", "F", "D"])),
+            "observations": {
+                "confidence": float(payload.get("confidence", 0.85)),
+                "obstacle_classes": classes,
+                "distance_band": payload.get("distance", payload.get("distance_band", "near")),
+                "ground_contact_distance_m": payload.get("ground_contact_distance_m", 1.0),
+                "zone_occupancy": {
+                    "left": zones.get("left", "clear"),
+                    "centre": zones.get("centre", "occupied"),
+                    "right": zones.get("right", "clear"),
+                },
+                "moving": bool(payload.get("moving", False)),
+                "consecutive_blocked_frames": int(payload.get("consecutive_blocked_frames", 6)),
+            },
+            "keyframes": payload.get("keyframes", []),
+            "privacy": {
+                "people_blurred_on_device": True,
+                "face_recognition_used": False,
+                "s3_lifecycle_days": 7,
+            },
+            "map_version": int(payload.get("map_version", 1)),
+        }
+        return normalized
+    return payload
+
+
 def validate_event_dict(payload: Dict[str, Any]) -> BlockedEdgeEventV1:
     """Validates a raw dictionary payload against BlockedEdgeEventV1 and domain rules."""
+    payload = normalize_payload(payload)
     try:
         event = BlockedEdgeEventV1.model_validate(payload)
     except ValidationError as e:
