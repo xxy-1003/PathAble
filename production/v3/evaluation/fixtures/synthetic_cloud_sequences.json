@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "fixture_type": "SYNTHETIC_FIXTURE_NOT_MEASURED_TRIAL",
+    "description": "30 staged cloud event sequences for cloud agent classification and false escalation verification",
+    "total_sequences": 30
+  },
+  "sequences": [
+    {"seq_id": "SEQ_01", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_02", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_03", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_04", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_05", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_06", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_07", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_08", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_09", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_10", "ground_truth_outcome": "TEMPORARY", "predicted_outcome": "TEMPORARY", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_11", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_12", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_13", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_14", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_15", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_16", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_17", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_18", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_19", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_20", "ground_truth_outcome": "UNCERTAIN", "predicted_outcome": "UNCERTAIN", "escalated_to_facilities": false},
+    {"seq_id": "SEQ_21", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_22", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_23", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_24", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_25", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_26", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_27", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_28", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_29", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true},
+    {"seq_id": "SEQ_30", "ground_truth_outcome": "LASTING", "predicted_outcome": "LASTING", "escalated_to_facilities": true}
+  ]
+}
