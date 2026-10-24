@@ -7,9 +7,10 @@ import unittest
 
 HAS_OPENCV = importlib.util.find_spec("cv2") is not None
 if HAS_OPENCV:
-    from calibrated_observation import FloorProjector, observation_from_vision
+    import numpy as np
+    from calibrated_observation import FloorProjector, PerceptionPipeline, observation_from_vision
     from local_agent import LocalAgent, RouteMap
-    from vision import Obstacle, VisionResult
+    from vision import MarkerDetection, Obstacle, VisionResult
 
 
 @unittest.skipUnless(HAS_OPENCV, "OpenCV vision extras are not installed")
@@ -134,6 +135,46 @@ class CalibratedObservationTests(unittest.TestCase):
         result = VisionResult((obstacle,), (0, 0.4, 0), 1.0)
         obs = observation_from_vision(result, 1.0, (640, 480), broken_projector, same_pose_verified=True)
         self.assertEqual(obs.distance, "unknown")
+
+    def test_perception_pipeline_synthetic_end_to_end(self):
+        # Create a mock detector returning a chair in the centre zone
+        class MockDetector:
+            def detect(self, frame):
+                obstacle = Obstacle("chair", 0.88, (200, 100, 440, 300), (470, 240), (0, 0.25, 0))
+                return VisionResult((obstacle,), (0, 0.25, 0), 12.5)
+
+        # Create a mock localizer returning marker node "B"
+        class MockLocalizer:
+            def detect(self, frame):
+                return (MarkerDetection(marker_id=1, node="B", corners=((0, 0), (1, 0), (1, 1), (0, 1))),)
+
+        projector = self.projector()
+        pipeline = PerceptionPipeline(
+            detector=MockDetector(),
+            localizer=MockLocalizer(),
+            projector=projector,
+            same_pose_verified=True,
+        )
+
+        frame = np.zeros((480, 640, 3), dtype=np.uint8)
+        obs = pipeline.process_frame(frame, timestamp=5.0)
+
+        self.assertEqual(obs.timestamp, 5.0)
+        self.assertEqual(obs.node, "B")
+        self.assertEqual(obs.obstacle_class, "chair")
+        self.assertAlmostEqual(obs.confidence, 0.88)
+        self.assertEqual(obs.centre, "occupied")
+        self.assertEqual(obs.distance, "medium")
+
+    def test_perception_pipeline_fail_closed_on_none_frame(self):
+        pipeline = PerceptionPipeline()
+        obs = pipeline.process_frame(None, timestamp=10.0)
+        self.assertEqual(obs.timestamp, 10.0)
+        self.assertIsNone(obs.obstacle_class)
+        self.assertEqual(obs.confidence, 0.0)
+        self.assertEqual((obs.left, obs.centre, obs.right, obs.distance),
+                         ("unknown", "unknown", "unknown", "unknown"))
+        self.assertIsNone(obs.node)
 
 
 if __name__ == "__main__":
