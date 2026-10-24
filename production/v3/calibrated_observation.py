@@ -109,8 +109,10 @@ class FloorProjector:
 
 def observation_from_vision(result: VisionResult, timestamp: float,
                             frame_size: tuple[int, int], projector: FloorProjector,
-                            *, same_pose_verified: bool = False) -> Observation:
-    """Produce an observation for review/replay, never evidence of clear space."""
+                            *, same_pose_verified: bool = False,
+                            node: str | None = None,
+                            moving: bool = False) -> Observation:
+    """Produce a conservative observation for review/replay, preserving fail-closed behavior."""
     occupied = result.occupied
     zones = tuple("occupied" if value else "unknown" for value in occupied)
     centre_obstacles = [item for item in result.obstacles if item.coverage[1] >= 0.15]
@@ -127,4 +129,4 @@ def observation_from_vision(result: VisionResult, timestamp: float,
         distance = "unknown"
         name = centre_obstacles[0].name if centre_obstacles else None
         confidence = max((item.confidence for item in centre_obstacles), default=0.0)
-    return Observation(timestamp, name, confidence, *zones, distance)
+    return Observation(timestamp, name, confidence, *zones, distance, moving=moving, node=node)

@@ -98,6 +98,43 @@ class CalibratedObservationTests(unittest.TestCase):
         agent = LocalAgent(route, "A", "B")
         self.assertEqual(agent.observe(unknown).action, "WAIT_AND_REOBSERVE")
 
+    def test_node_and_moving_fields_propagate_conservatively(self):
+        projector = self.projector()
+        obstacle = Obstacle("person", 0.95, (200, 100, 440, 400), (320, 390), (0, 0.4, 0))
+        result = VisionResult((obstacle,), (0, 0.4, 0), 1.0)
+
+        # Pass node and moving flags
+        obs = observation_from_vision(
+            result, 2.0, (640, 480), projector,
+            same_pose_verified=True, node="B", moving=True
+        )
+        self.assertEqual(obs.node, "B")
+        self.assertTrue(obs.moving)
+        self.assertEqual(obs.obstacle_class, "person")
+
+        # When moving person is in centre, agent issues WAIT_AND_REOBSERVE
+        route = RouteMap({"nodes": {"A": "A", "B": "B", "C": "C"},
+                          "edges": [{"from": "A", "to": "B", "distance": 10},
+                                    {"from": "B", "to": "C", "distance": 15}]})
+        agent = LocalAgent(route, "A", "C")
+        # Initialize at node B
+        decision = agent.observe(obs)
+        self.assertEqual(decision.action, "WAIT_AND_REOBSERVE")
+        self.assertIn("person", decision.message.lower())
+
+    def test_missing_calibration_fails_closed_to_unknown_distance(self):
+        missing_cam = Path(self.temp.name) / "nonexistent_cam.json"
+        missing_floor = Path(self.temp.name) / "nonexistent_floor.json"
+        broken_projector = FloorProjector(missing_cam, missing_floor)
+        self.assertFalse(broken_projector.ready)
+        self.assertIsNone(broken_projector.distance_metres((320, 240), (640, 480), same_pose_verified=True))
+        self.assertEqual(broken_projector.distance_band((320, 240), (640, 480), same_pose_verified=True), "unknown")
+
+        obstacle = Obstacle("chair", 0.85, (200, 100, 440, 400), (320, 390), (0, 0.4, 0))
+        result = VisionResult((obstacle,), (0, 0.4, 0), 1.0)
+        obs = observation_from_vision(result, 1.0, (640, 480), broken_projector, same_pose_verified=True)
+        self.assertEqual(obs.distance, "unknown")
+
 
 if __name__ == "__main__":
     unittest.main()
