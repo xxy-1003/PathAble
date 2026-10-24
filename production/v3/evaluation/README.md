@@ -21,6 +21,7 @@ production/v3/evaluation/
 ├── test_metrics.py                    # Unit tests for metric calculations
 ├── evaluation_summary_report.md       # Submission placeholder until measured evidence exists
 ├── measured_inputs.py                  # Measured-data provenance and integrity gate
+├── recorded_benchmarks.py              # Validates Person 4 native recorded run.json files
 └── fixtures/                          # Synthetic fixtures for pre-integration verification
     ├── synthetic_scenario_trials.json
     ├── synthetic_route_trials.json
@@ -66,6 +67,9 @@ python run_evaluation_pipeline.py --mode measured --data-dir measured_data --out
 
 Measured mode refuses missing inputs, copied synthetic fixtures, hash mismatches,
 missing source evidence, incomplete trial counts, and missing human review.
+Recorded benchmark files are checked against Person 4's native format; missing
+prices stay unavailable. End-to-end latency must cover capture through audible
+speech, with measured calibration and absence of simulated outputs reviewed.
 Passing this software gate checks integrity and records the review declaration;
 the reviewer must actually inspect the footage, labels, and benchmark runs.
 Private recordings, participant information, and generated reports under the

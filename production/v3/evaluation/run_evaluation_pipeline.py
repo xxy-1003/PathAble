@@ -19,7 +19,6 @@ from metrics import (
     calculate_latency_percentiles,
     calculate_escalation_accuracy,
     calculate_cloud_metrics,
-    calculate_cool_performance,
 )
 
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
@@ -66,7 +65,7 @@ def run_pipeline(mode: str = "synthetic", output_file: Path | None = None,
     lat_res = calculate_latency_percentiles(data["latency"], data_origin=origin)
     esc_res = calculate_escalation_accuracy(data["scenarios"], data_origin=origin)
     cloud_res = calculate_cloud_metrics(data["cloud"], data_origin=origin)
-    cool_res = calculate_cool_performance(data["cool"], data_origin=origin)
+    cool_res = data["cool"]
 
     collection = manifest["collection"]
     review = manifest["evidence_review"]
@@ -109,8 +108,10 @@ def run_pipeline(mode: str = "synthetic", output_file: Path | None = None,
     ])
 
     for cfg in cool_res["configurations"].values():
+        cost = cfg["cost_per_1000_frames_usd"]
+        cost_text = f"${cost:.6f}" if cost is not None else "Unavailable (rates missing)"
         report_lines.append(
-            f"| {cfg['name']} | {cfg['median_latency_ms']} | {cfg['p95_latency_ms']} | {cfg['throughput_fps']} | ${cfg['cost_per_1000_frames_usd']:.6f} |"
+            f"| {cfg['name']} | {cfg['median_latency_ms']} | {cfg['p95_latency_ms']} | {cfg['throughput_fps']} | {cost_text} |"
         )
     speedup = cool_res.get("speedup_a_vs_b_graviton")
     report_lines.extend(["", f"COOL / stock Graviton throughput ratio: **{speedup}x**." if speedup
