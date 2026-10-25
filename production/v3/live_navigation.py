@@ -22,6 +22,7 @@ from calibrated_observation import PerceptionPipeline
 from local_agent import LocalAgent, RouteMap
 from voice import VoiceGuidance
 from manual_route_demo import ManualRouteDemo
+from camera_region_demo import ChairRegionMonitor
 
 
 BACKENDS = {"auto": cv2.CAP_ANY, "dshow": cv2.CAP_DSHOW, "msmf": cv2.CAP_MSMF}
@@ -112,9 +113,13 @@ def main() -> None:
     parser.add_argument("--voice-mode", choices=("auto", "tts", "mock"), default="auto")
     parser.add_argument("--manual-route-demo", action="store_true",
                         help="Operator assigns junction B; press B to confirm B-C blocked and propose a route")
+    parser.add_argument("--camera-route-demo", action="store_true",
+                        help="Fixed-view chair overlap automatically proposes a demo route; not physical blockage verification")
     args = parser.parse_args()
-    if args.manual_route_demo and (args.start != "B" or args.dest != "D"):
-        parser.error("Use --start B --dest D with --manual-route-demo")
+    if args.manual_route_demo and args.camera_route_demo:
+        parser.error("Choose either manual or camera route demo")
+    if (args.manual_route_demo or args.camera_route_demo) and (args.start != "B" or args.dest != "D"):
+        parser.error("Use --start B --dest D with route demos")
 
     # Check for model file
     if not args.model.is_file():
@@ -136,7 +141,10 @@ def main() -> None:
     agent = LocalAgent(route_map, args.start, args.dest, voice=voice)
     # A separate graph prevents manual demo confirmations becoming sensor evidence.
     manual_demo = (ManualRouteDemo(RouteMap.from_file(args.map), voice)
-                   if args.manual_route_demo else None)
+                   if args.manual_route_demo or args.camera_route_demo else None)
+    monitor = ChairRegionMonitor() if args.camera_route_demo else None
+    monitor_status = None
+    trial_dir = None
     print(f"Voice mode: {voice.active_mode}; timing records cover queue dispatch only.")
     print(f"PathAble Agent Initialized: {args.start} -> {args.dest}")
     print(f"Initial Route: {' -> '.join(agent.current_route)}")
@@ -151,9 +159,14 @@ def main() -> None:
     if not pipeline.projector.ready or not args.same_pose_verified:
         print("Measured calibration / matching fixed pose unverified: distances remain unknown.")
     print("No detection leaves free space unknown; this viewer does not validate walking safety.")
-    if manual_demo:
+    if args.manual_route_demo:
         print("MANUAL DEMO: junction B is operator-assigned, not camera-localised.")
         print("Press B in the camera window to confirm B-C blocked. Alternative route is a map proposal only.")
+    if monitor:
+        trial_dir = Path(__file__).parent / "calibration" / "camera_route_trials" / str(time.time_ns())
+        trial_dir.mkdir(parents=True)
+        print(f"CAMERA REGION DEMO: central blue rectangle represents B-C. Logs: {trial_dir}")
+        print("Junction B is operator-assigned. Chair overlap is a demo trigger, not measured corridor clearance.")
 
     capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
     if not capture.isOpened():
@@ -181,6 +194,17 @@ def main() -> None:
 
             # Pass Observation to LocalAgent
             decision = agent.observe(obs)
+            if monitor:
+                monitor_status = monitor.update(pipeline.last_vision_result, t_now,
+                                                (frame.shape[1], frame.shape[0]))
+                if monitor_status['trigger'] and not manual_demo.confirmed:
+                    manual_demo.propose_from_camera(monitor_status)
+                    cv2.imwrite(str(trial_dir / 'trigger.png'), frame)
+                    print("CAMERA DEMO TRIGGER: " + json.dumps(manual_demo.last_event))
+                with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
+                    log.write(json.dumps(dict(timestamp=t_now, mode='camera_region_demo',
+                        evidence=monitor_status, proposed_route=list(manual_demo.route),
+                        triggered=manual_demo.confirmed)) + '\n')
 
             # Print state changes
             if decision.action != last_action or obs.node is not None:
@@ -195,6 +219,11 @@ def main() -> None:
 
             # Display GUI
             hud_frame = draw_hud(frame, obs, decision, agent, pipeline)
+            if monitor:
+                x1, y1, x2, y2 = monitor.pixel_region((frame.shape[1], frame.shape[0]))
+                cv2.rectangle(hud_frame, (x1, y1), (x2, y2), (255, 200, 0), 3)
+                cv2.putText(hud_frame, 'B-C DEMO REGION', (x1, y1 - 6),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.45, (255, 200, 0), 1)
             if manual_demo:
                 panel = np.zeros((122, hud_frame.shape[1], 3), dtype=np.uint8)
                 playback = voice.get_playback_status()
@@ -206,6 +235,10 @@ def main() -> None:
                     "Camera status above remains separate; alternative path is unverified.",
                     f"Voice: {playback['mode']} | {playback['state']} (backend status)",
                 ]
+                if monitor:
+                    lines[0] = "CAMERA REGION DEMO | Assigned B | R: repeat route | Q: exit"
+                    lines[1] = ("DEMO TRIGGERED by repeated chair overlap" if manual_demo.confirmed
+                                else f"Monitoring chair overlap: {monitor_status['positive_frames']} positive frames")
                 for index, line in enumerate(lines):
                     cv2.putText(panel, line, (8, 20 + index * 23),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
@@ -214,7 +247,7 @@ def main() -> None:
             key = cv2.waitKey(1) & 0xFF
             if key in (ord("q"), 27):
                 break
-            if key in (ord("b"), ord("B")) and manual_demo:
+            if key in (ord("b"), ord("B")) and args.manual_route_demo:
                 if manual_demo.confirm_blocked():
                     print("MANUAL CONFIRMATION: " + json.dumps(manual_demo.last_event))
                 else:
@@ -224,7 +257,7 @@ def main() -> None:
                     print("REPLAY ROUTE: " + manual_demo.announcement)
                     print("VOICE STATUS: " + json.dumps(voice.get_playback_status()))
                 else:
-                    print("First press B to confirm the blockage; R repeats the confirmed route.")
+                    print("No proposed reroute to repeat yet.")
     finally:
         capture.release()
         cv2.destroyAllWindows()
