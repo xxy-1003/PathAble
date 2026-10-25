@@ -128,6 +128,7 @@ Resources:
                 - dynamodb:PutItem
                 - dynamodb:Scan
                 - dynamodb:ConditionCheckItem
+                - dynamodb:TransactWriteItems
               Resource: !GetAtt StateTable.Arn
             - Effect: Allow
               Action: [s3:PutObject, s3:GetObject]

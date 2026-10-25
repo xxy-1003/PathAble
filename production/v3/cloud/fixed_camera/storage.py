@@ -54,12 +54,59 @@ class MemoryStore:
 class MemoryPhotos:
     def __init__(self):
         self.photos = {}
+        self._slots = {}  # photo_id -> {sha256, size_bytes} for presign slots
 
     def put(self, photo_id, data):
         self.photos[photo_id] = data
 
     def url(self, photo_id):
         return f"/api/v2/photos/{photo_id}/content"
+
+    def presign(self, photo_id, sha256, size_bytes, content_type="image/jpeg"):
+        """Return a presign slot for direct upload. In local mode the PUT goes to
+        /api/v2/uploads/{photo_id} (served by the local_photo_put endpoint)."""
+        self._slots[photo_id] = {"sha256": sha256, "size_bytes": size_bytes}
+        return {
+            "photo_id": photo_id,
+            "method": "PUT",
+            "url": f"/api/v2/uploads/{photo_id}",
+            "headers": {
+                "Content-Type": content_type,
+                "Content-Length": str(size_bytes),
+                "If-None-Match": "*",
+                "x-amz-checksum-sha256": _sha256_b64(sha256),
+            },
+            "expires_in": 300,
+        }
+
+    def verify_and_put(self, photo_id, data):
+        """Called after local direct PUT. Validates size and checksum against slot."""
+        import hashlib
+        slot = self._slots.get(photo_id)
+        if slot is None:
+            return False
+        if len(data) != slot["size_bytes"]:
+            return False
+        if hashlib.sha256(data).hexdigest() != slot["sha256"]:
+            return False
+        self.photos[photo_id] = data
+        return True
+
+
+    def verify_uploaded(self, photo_id, sha256, size_bytes):
+        """Return uploaded bytes only when the stored object matches its slot."""
+        import hashlib
+        data = self.photos.get(photo_id)
+        if data is None or len(data) != size_bytes:
+            return None
+        if hashlib.sha256(data).hexdigest() != sha256:
+            return None
+        return data
+
+
+def _sha256_b64(hex_digest):
+    import base64
+    return base64.b64encode(bytes.fromhex(hex_digest)).decode()
 
 
 class DynamoStore:
@@ -168,3 +215,56 @@ class S3Photos:
     def url(self, photo_id):
         return self.client.generate_presigned_url("get_object", Params={
             "Bucket": self.bucket, "Key": f"photos/{photo_id}.jpg"}, ExpiresIn=300)
+
+    def verify_uploaded(self, photo_id, sha256, size_bytes):
+        """Read back a private S3 object and verify its exact bytes before intake."""
+        import hashlib
+        from botocore.exceptions import ClientError
+        try:
+            result = self.client.get_object(
+                Bucket=self.bucket, Key=f"photos/{photo_id}.jpg")
+        except ClientError as exc:
+            code = exc.response.get("Error", {}).get("Code")
+            status = exc.response.get("ResponseMetadata", {}).get("HTTPStatusCode")
+            if code in {"NoSuchKey", "404", "NotFound"} or status == 404:
+                return None
+            raise
+        data = result["Body"].read()
+        if len(data) != size_bytes or hashlib.sha256(data).hexdigest() != sha256:
+            return None
+        return data
+
+    def presign(self, photo_id, sha256, size_bytes, content_type="image/jpeg"):
+        """Generate a presigned S3 PUT URL for direct browser/camera upload.
+
+        The sha256 checksum and If-None-Match are enforced by S3 on PUT,
+        so the client cannot substitute different bytes after the slot is issued.
+        No API bearer token is included in the signed URL.
+        """
+        key = f"photos/{photo_id}.jpg"
+        url = self.client.generate_presigned_url(
+            "put_object",
+            Params={
+                "Bucket": self.bucket,
+                "Key": key,
+                "ContentType": content_type,
+                "ServerSideEncryption": "AES256",
+                "ChecksumSHA256": _sha256_b64(sha256),
+                "IfNoneMatch": "*",
+            },
+            ExpiresIn=300,
+            HttpMethod="PUT",
+        )
+        return {
+            "photo_id": photo_id,
+            "method": "PUT",
+            "url": url,
+            "headers": {
+                "Content-Type": content_type,
+                "Content-Length": str(size_bytes),
+                "If-None-Match": "*",
+                "x-amz-checksum-sha256": _sha256_b64(sha256),
+                "x-amz-server-side-encryption": "AES256",
+            },
+            "expires_in": 300,
+        }

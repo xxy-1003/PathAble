@@ -70,6 +70,47 @@
         ]
       }
     },
+    "/api/v2/uploads/presign": {
+      "post": {
+        "summary": "Presign Upload",
+        "operationId": "presign_upload_api_v2_uploads_presign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
     "/api/v2/reports": {
       "post": {
         "summary": "Submit Report",
@@ -79,7 +120,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReportInput"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ReportInput"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CanonicalReportInput"
+                  }
+                ],
+                "title": "Body"
               }
             }
           }
@@ -89,9 +138,7 @@
             "description": "Successful Response",
             "content": {
               "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReportRecord"
-                }
+                "schema": {}
               }
             }
           },
@@ -192,6 +239,45 @@
         ]
       }
     },
+    "/api/v2/events": {
+      "post": {
+        "summary": "Submit Canonical Event",
+        "operationId": "submit_canonical_event_api_v2_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CanonicalReportInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
     "/api/v2/reports/{report_id}": {
       "get": {
         "summary": "Get Report",
@@ -214,7 +300,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ReportRecord"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ReportRecord"
+                    },
+                    {
+                      "$ref": "#/components/schemas/CanonicalReportRecord"
+                    }
+                  ],
+                  "title": "Response Get Report Api V2 Reports  Report Id  Get"
                 }
               }
             }
@@ -278,46 +372,184 @@
         ]
       }
     },
-    "/api/v2/map/version": {
+    "/api/v2/tickets": {
       "get": {
-        "summary": "Map Version",
-        "operationId": "map_version_api_v2_map_version_get",
+        "summary": "List Tickets",
+        "description": "Alias for GET /reports; returns the same records with ticket_id included.",
+        "operationId": "list_tickets_api_v2_tickets_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PENDING",
+                    "APPROVED",
+                    "REJECTED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MapVersion"
+                  "$ref": "#/components/schemas/TicketPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
         },
         "x-required-scopes-any-of": [
-          "pathable/map",
           "pathable/reviewer"
         ]
       }
     },
-    "/api/v2/map": {
+    "/api/v2/tickets/T-{event_id}": {
       "get": {
-        "summary": "Get Map",
-        "operationId": "get_map_api_v2_map_get",
+        "summary": "Get Ticket",
+        "description": "Alias for GET /reports/{report_id}.",
+        "operationId": "get_ticket_api_v2_tickets_T__event_id__get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SharedMap"
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Ticket Api V2 Tickets T  Event Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
           }
         },
         "x-required-scopes-any-of": [
-          "pathable/map",
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/tickets/T-{event_id}/review": {
+      "post": {
+        "summary": "Review Ticket",
+        "description": "Alias for POST /reports/{report_id}/review. Returns CanonicalReviewResult.",
+        "operationId": "review_ticket_api_v2_tickets_T__event_id__review_post",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
           "pathable/reviewer"
         ]
       }
@@ -374,10 +606,277 @@
           "pathable/reviewer"
         ]
       }
+    },
+    "/api/v2/map/version": {
+      "get": {
+        "summary": "Map Version",
+        "operationId": "map_version_api_v2_map_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapVersion"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/map",
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/map": {
+      "get": {
+        "summary": "Get Map",
+        "operationId": "get_map_api_v2_map_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedMap"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/map",
+          "pathable/reviewer"
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "CanonicalReportInput": {
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "const": "pathable.human-review.report.v1",
+            "title": "Schema Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "edge_key": {
+            "type": "string",
+            "const": "B-C",
+            "title": "Edge Key"
+          },
+          "junction": {
+            "type": "string",
+            "const": "B",
+            "title": "Junction"
+          },
+          "destination": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Destination"
+          },
+          "detection_evidence": {
+            "$ref": "#/components/schemas/DetectionEvidence"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageRef"
+          },
+          "distance_m": {
+            "type": "null",
+            "title": "Distance M"
+          },
+          "clearance_m": {
+            "type": "null",
+            "title": "Clearance M"
+          },
+          "measurement_source": {
+            "type": "null",
+            "title": "Measurement Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_id",
+          "event_id",
+          "client_id",
+          "timestamp",
+          "edge_key",
+          "junction",
+          "destination",
+          "detection_evidence",
+          "image"
+        ],
+        "title": "CanonicalReportInput"
+      },
+      "CanonicalReportRecord": {
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "title": "Schema Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "edge_key": {
+            "type": "string",
+            "title": "Edge Key"
+          },
+          "junction": {
+            "type": "string",
+            "title": "Junction"
+          },
+          "destination": {
+            "type": "string",
+            "title": "Destination"
+          },
+          "detection_evidence": {
+            "$ref": "#/components/schemas/DetectionEvidence"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageRef"
+          },
+          "distance_m": {
+            "type": "null",
+            "title": "Distance M"
+          },
+          "clearance_m": {
+            "type": "null",
+            "title": "Clearance M"
+          },
+          "measurement_source": {
+            "type": "null",
+            "title": "Measurement Source"
+          },
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ],
+            "title": "Status"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "expected_map_version": {
+            "type": "integer",
+            "title": "Expected Map Version"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "schema_id",
+          "event_id",
+          "client_id",
+          "timestamp",
+          "edge_key",
+          "junction",
+          "destination",
+          "detection_evidence",
+          "image",
+          "distance_m",
+          "clearance_m",
+          "measurement_source",
+          "ticket_id",
+          "status",
+          "received_at",
+          "expected_map_version",
+          "review"
+        ],
+        "title": "CanonicalReportRecord",
+        "description": "Response shape for v1.1 canonical flow (tickets and canonical reports)."
+      },
+      "DetectionEvidence": {
+        "properties": {
+          "obstacle_class": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Obstacle Class"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "overlap_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Overlap Count"
+          },
+          "frame_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Frame Count"
+          },
+          "evidence_status": {
+            "type": "string",
+            "const": "client_reported",
+            "title": "Evidence Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "obstacle_class",
+          "confidence",
+          "overlap_count",
+          "frame_count",
+          "evidence_status"
+        ],
+        "title": "DetectionEvidence"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -415,6 +914,29 @@
           "map_version"
         ],
         "title": "Health"
+      },
+      "ImageRef": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "sha256": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "sha256"
+        ],
+        "title": "ImageRef"
       },
       "MapEdge": {
         "properties": {
@@ -538,6 +1060,82 @@
         ],
         "title": "PhotoUpload"
       },
+      "PresignRequest": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "content_type": {
+            "type": "string",
+            "const": "image/jpeg",
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "maximum": 524288.0,
+            "minimum": 1.0,
+            "title": "Size Bytes"
+          },
+          "sha256": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "client_id",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "PresignRequest"
+      },
+      "PresignResponse": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "method": {
+            "type": "string",
+            "const": "PUT",
+            "title": "Method"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "method",
+          "url",
+          "headers",
+          "expires_in"
+        ],
+        "title": "PresignResponse"
+      },
       "ReportInput": {
         "properties": {
           "report_id": {
@@ -616,7 +1214,14 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/ReportRecord"
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ReportRecord"
+                },
+                {
+                  "$ref": "#/components/schemas/CanonicalReportRecord"
+                }
+              ]
             },
             "type": "array",
             "title": "Items"
@@ -843,7 +1448,15 @@
       "ReviewResult": {
         "properties": {
           "report": {
-            "$ref": "#/components/schemas/ReportRecord"
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportRecord"
+              },
+              {
+                "$ref": "#/components/schemas/CanonicalReportRecord"
+              }
+            ],
+            "title": "Report"
           },
           "map_version": {
             "type": "integer",
@@ -893,6 +1506,36 @@
           "edges"
         ],
         "title": "SharedMap"
+      },
+      "TicketPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "TicketPage"
       },
       "ValidationError": {
         "properties": {

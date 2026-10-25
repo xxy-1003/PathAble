@@ -159,3 +159,55 @@ def test_configured_placement_and_generated_contract_are_valid():
         CameraAssignment(node="C", edge_key="C-D")
     saved = Path(__file__).parents[1] / "openapi.json"
     assert json.loads(saved.read_text(encoding="utf-8")) == contract()
+
+
+def test_canonical_presigned_upload_then_report_uses_canonical_reports_route():
+    import hashlib
+    from uuid import uuid4
+
+    store, photos = MemoryStore(), MemoryPhotos()
+    client = TestClient(create_app(store, photos))
+    image = jpeg()
+    digest = hashlib.sha256(image).hexdigest()
+    slot = client.post("/api/v2/uploads/presign", json={
+        "client_id": "camera-b-01", "content_type": "image/jpeg",
+        "size_bytes": len(image), "sha256": digest,
+    })
+    assert slot.status_code == 201, slot.text
+    photo_id = slot.json()["photo_id"]
+    # Simulate a successful direct-to-S3 PUT: the API has a SLOT record,
+    # but no PHOTO record until report intake verifies the actual object bytes.
+    photos.put(photo_id, image)
+    assert store.get(f"PHOTO#{photo_id}") is None
+
+    event_id = str(uuid4())
+    canonical = {
+        "schema_id": "pathable.human-review.report.v1",
+        "event_id": event_id,
+        "client_id": "camera-b-01",
+        "timestamp": "2026-10-25T09:00:00Z",
+        "edge_key": "B-C",
+        "junction": "B",
+        "destination": "D",
+        "detection_evidence": {
+            "obstacle_class": "chair", "confidence": 0.85,
+            "overlap_count": 6, "frame_count": 10,
+            "evidence_status": "client_reported",
+        },
+        "image": {"photo_id": photo_id, "sha256": digest},
+        "distance_m": None, "clearance_m": None, "measurement_source": None,
+    }
+    submitted = client.post("/api/v2/reports", json=canonical)
+    assert submitted.status_code == 201, submitted.text
+    assert submitted.json()["status"] == "PENDING"
+    assert submitted.json()["ticket_id"] == f"T-{event_id}"
+    assert submitted.json()["event_id"] == event_id
+    assert client.post("/api/v2/reports", json=canonical).status_code == 200
+    assert client.get(f"/api/v2/tickets/T-{event_id}").status_code == 200
+    assert client.get(f"/api/v2/reports/{event_id}").status_code == 200
+    reviewed = client.post(f"/api/v2/tickets/T-{event_id}/review", json={
+        "action": "APPROVE", "expected_map_version": 1, "notes": "verified test image",
+    })
+    assert reviewed.status_code == 200, reviewed.text
+    assert reviewed.json()["map_version"] == 2
+    assert reviewed.json()["report"]["status"] == "APPROVED"
