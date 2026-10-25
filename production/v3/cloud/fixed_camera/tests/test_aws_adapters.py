@@ -96,6 +96,21 @@ def test_s3_photo_cannot_be_overwritten(aws_storage):
         photos.put("immutable", b"replacement")
 
 
+def test_presigned_photo_links_use_bucket_region(monkeypatch):
+    from urllib.parse import urlsplit, parse_qs
+    monkeypatch.setenv("AWS_DEFAULT_REGION", "ap-southeast-2")
+    monkeypatch.setenv("S3_REGIONAL_ENDPOINT", "https://s3.ap-southeast-2.amazonaws.com")
+    with mock_aws():
+        photos = S3Photos("regional-demo-photos")
+        get_url = photos.url("example")
+        put_url = photos.presign("example", 10, "0" * 64)["url"]
+        for url in (get_url, put_url):
+            parsed = urlsplit(url)
+            assert parsed.hostname == "s3.ap-southeast-2.amazonaws.com"
+            assert parsed.path == "/regional-demo-photos/photos/example.jpg"
+            assert "/ap-southeast-2/s3/aws4_request" in parse_qs(parsed.query)["X-Amz-Credential"][0]
+
+
 def test_lambda_jwt_scope_identity_and_http_adapter(aws_storage, monkeypatch):
     for key, value in {"STATE_TABLE": "test-state", "PHOTOS_BUCKET": "test-photos",
         "CAMERA_ID": "camera-b-01", "CAMERA_NODE": "B", "CAMERA_EDGE": "B-C",

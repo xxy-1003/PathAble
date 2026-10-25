@@ -1,6 +1,15 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: PathAble fixed-camera reports, private photos and human-approved map
+Metadata:
+  AWSToolsMetrics:
+    AWSAgentToolkit: aws-cloudformation@3
+  com.aws.cloudformation.Context:
+    ref: [OPERATIONS.md]
+    must:
+      - Keep photos private and review updates conditional
+      - Use separate camera and reviewer subjects
+      - Keep unverified measurements unknown
 
 Parameters:
   JwtIssuer:
@@ -126,6 +135,7 @@ Resources:
         Variables:
           STATE_TABLE: !Ref StateTable
           PHOTOS_BUCKET: !Ref PhotosBucket
+          S3_REGIONAL_ENDPOINT: !Sub 'https://s3.${AWS::Region}.${AWS::URLSuffix}'
           CAMERA_ID: camera-b-01
           CAMERA_NODE: B
           CAMERA_EDGE: B-C
@@ -154,6 +164,15 @@ Resources:
             ApiId: !Ref HttpApi
             Path: '/api/v2/{proxy+}'
             Method: ANY
+        # Browsers send preflight without a token. Data methods keep JWT auth.
+        BrowserPreflight:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/api/v2/{proxy+}'
+            Method: OPTIONS
+            Auth:
+              Authorizer: NONE
     Metadata:
       BuildMethod: makefile
   FunctionLogs:

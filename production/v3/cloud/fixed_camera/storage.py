@@ -2,6 +2,7 @@
 import copy
 import base64
 import json
+import os
 from decimal import Decimal
 from threading import RLock
 
@@ -172,7 +173,10 @@ class S3Photos:
         import boto3
         from botocore.config import Config
         self.bucket = bucket
-        self.client = client or boto3.client("s3", config=Config(signature_version="s3v4"))
+        # Explicit regional endpoint avoids redirects for newly created buckets.
+        # The deployment template supplies the partition-correct service URL.
+        self.client = client or boto3.client("s3", endpoint_url=os.environ.get("S3_REGIONAL_ENDPOINT"),
+                                             config=Config(signature_version="s3v4"))
 
     def put(self, photo_id, data):
         self.client.put_object(Bucket=self.bucket, Key=f"photos/{photo_id}.jpg",

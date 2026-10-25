@@ -1,5 +1,9 @@
 # Verification — 25 October 2026
 
+Historical local baseline. See [DEPLOYMENT.md](DEPLOYMENT.md) for the subsequent
+26 October AWS demo deployment and checks; the original "Still unverified"
+list below records the state before AWS access became available.
+
 Base: integration branch `codex/pathable-v3`, commit `e9e0046` fetched from GitHub.
 Work branch: `codex/aws-backend`. Shared contract first pushed in `3ea4250`.
 Revision 1.1 canonical contract and synthetic fixtures first pushed in `a082765`.

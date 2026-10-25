@@ -8,6 +8,12 @@ behaviour. Use this service's `/api/v2` URLs for the new phase.
 
 ## Current evidence
 
+The local laptop demo was deployed on 26 October 2026 (Malaysia time).
+See [DEPLOYMENT.md](DEPLOYMENT.md) for the deployed API, sign-in settings,
+release checks and remaining live-camera/audio verification. The bullets below
+describe the original pre-deployment baseline and are superseded by that record
+for the dedicated `pathable-fixed-camera-demo` stack.
+
 - Shared API contract published before implementation.
 - Local server defaults to durable SQLite and file photos on localhost. Explicit
   memory mode is volatile. Both are unauthenticated development modes, not AWS.
