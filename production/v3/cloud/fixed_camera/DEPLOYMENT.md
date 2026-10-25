@@ -114,6 +114,16 @@ address returned HTTP 307; regional links loaded successfully in the dashboard.
 - Live resource checks confirmed all four S3 public-access blocks, encryption,
   seven-day photo expiry, DynamoDB PITR, exact Cognito issuer/audience and
   browser origin. Neither data nor photos are stored in Lambda memory/JSON.
+- A second synthetic report, `fdb8f951-ec71-45c1-b9f6-1e493d10df07`, exercised
+  a lost intake reply: AWS returned 201, the client deliberately discarded that
+  reply locally, and a real retry with the same ID returned 200. A separate
+  DynamoDB scan found one copy of each of the two test reports.
+- The signed-in reviewer rejected that second report through the dashboard.
+  Person 1's client observed REJECTED while the map stayed at version 3,
+  B-C stayed open, the route stayed B-C-D and speech calls stayed at zero.
+  Retrying the rejected report returned its existing terminal status. A
+  continuing overlap episode stayed suppressed; a later episode received a
+  distinct local ID (not submitted to AWS).
 
 Local screenshots and machine-readable smoke results are outside Git in the
 operator workspace outputs/test folder. No tokens, passwords or private signed
@@ -123,23 +133,28 @@ links are included in this evidence record.
 
 1. Run Person 1's actual mounted camera and configured image region against
    this API. Verify repeated overlap, upload, manual approval and laptop update.
-2. Use the real voice backend/speakers and confirm audible speech and replay.
-   A recorded `speak()` call does not prove sound playback.
+2. Confirm the same audible speech during that camera-driven run. A standalone
+   replay through Person 1's actual Windows SAPI backend now completes, and the
+   operator confirmed the full B-E-F-D announcement was clearly audible. This
+   exposed and fixed a COM thread ownership bug in `voice.py`; the device fix
+   branch `5bc22ed` passed 246 tests and 2 subtests. A saved SAPI WAV replay is
+   outside Git. It is synthesized replay, not a live-camera audio recording.
 3. Coordinate and review integration of the backend, login/dashboard and device
    fix branches into `codex/pathable-v3`; this deployment did not merge them.
 
-The shared demo map currently has **B-C closed at version 2** from the synthetic
-verification above. A fresh before/after rerouting demo needs an explicit,
-coordinated map reset/reopening by its owner, or a separate fresh demo stack.
-Do not silently reopen it when the camera no longer sees a chair. There is no
-reopening endpoint in this phase's contract. Photos expire after seven days;
-the old approved report will eventually lose its image.
+After that synthetic verification, the owner explicitly authorized a demo reset.
+A conditional administrative write reopened B-C at **version 3**, retaining the
+earlier approved report and all its evidence. The real camera run is pending
+because the USB camera is disconnected. Do not silently reopen the map when the
+camera no longer sees a chair. There is no reopening endpoint in this phase's
+contract. Photos expire after seven days; old reports eventually lose images.
 
-Live rejection/role-escalation negative cases beyond the camera self-approval
-check, canonical direct-S3 upload, fault injection, long-duration operation and
-physical corridor clearance remain unverified in AWS. Canonical protocol and
-transaction conflict cases have local automated coverage. No physical walking
-safety is established. Distances and clearances remain unknown.
+Role-escalation negative cases beyond the camera self-approval check, canonical
+direct-S3 upload, server-side/network outage fault injection, long-duration
+operation and physical corridor clearance remain unverified in AWS. The lost
+reply case above injects a client-side failure after actual AWS success.
+Canonical protocol and transaction conflict cases have local automated coverage.
+No physical walking safety is established. Distances and clearances remain unknown.
 
 Cleanup and retained-storage behavior are described in `OPERATIONS.md`. Do not
 delete shared identity or artifact resources. Stack deletion retains the photo
