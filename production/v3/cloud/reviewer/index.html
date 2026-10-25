@@ -13,6 +13,11 @@
   <header><div><p class="eyebrow">PATHABLE / HUMAN REVIEW</p><h1>Review the evidence.<br>Keep the map accountable.</h1></div><span id="mode-badge" class="badge">FIXTURE MODE · NOT AWS</span></header>
   <main>
     <p id="mode-note" class="mode-note">Synthetic contract fixtures. This page is not connected to AWS.</p>
+    <section class="connection" aria-label="Application sign-in">
+      <div class="actions"><button id="reviewer-login" type="button">Reviewer sign-in</button><button id="camera-login" type="button" class="secondary">Camera / laptop sign-in</button><button id="forget-login" type="button" class="secondary" hidden>Clear local sign-in</button></div>
+      <p id="auth-status" class="muted" role="status">Application sign-in is loading…</p>
+      <div id="camera-token-tools" hidden><button id="copy-camera-token" type="button" class="secondary">Copy camera access token</button><p class="muted">Use this only on the camera laptop. In PowerShell: <code>$env:PATHABLE_AUTH_TOKEN = Get-Clipboard</code>. Then clear the clipboard. Never paste the token into chat or a source file. This is not a reviewer token.</p></div>
+    </section>
     <details class="connection" open>
       <summary>Connection settings</summary>
       <form id="connection-form">
@@ -21,7 +26,7 @@
         <label>Reviewer access token<input id="token" type="password" autocomplete="off" placeholder="Kept in this page’s memory only"></label>
         <button type="submit" id="connect">Connect / reset</button>
       </form>
-      <p class="muted">Use the address and reviewer sign-in provided by Person 2. The API verifies reviewer identity; no AWS keys are used here. Tokens are cleared from the input after connection and are never saved in browser storage.</p>
+      <p class="muted">Reviewer sign-in supplies credentials automatically for the configured API. Manual token entry is an advanced option. The API verifies identity; no AWS keys are used here. Tokens stay in page memory; only the temporary sign-in transaction uses session storage.</p>
     </details>
     <div id="error" role="alert" hidden></div>
     <p id="notice" role="status" aria-live="polite">Loading fixture practice…</p>

@@ -1,10 +1,12 @@
 import { ApiClient, photoURL, statusLabel, measurement } from './api.mjs';
 import { ReviewController } from './controller.mjs';
 import { FixtureClient } from './fixture.mjs';
+import { authConfig, createAuth, reviewerToken } from './auth.mjs';
 
 const $ = id => document.getElementById(id);
 let controller, activeFixture = true, photoReady = false, photoBusy = false;
 let selection = null, photoEpoch = 0, photoExpiry, photoLoadTimeout;
+let login, loginConfig, session = null;
 const fixtures = await fetch('./fixtures.json', { cache: 'no-store' }).then(r => {
   if (!r.ok) throw new Error('Fixture file unavailable');
   return r.json();
@@ -21,6 +23,8 @@ function updateControls() {
   const s = controller?.state;
   const busy = Boolean(s?.busy);
   for (const id of ['mode', 'connect', 'filter', 'refresh', 'more', 'fail']) $(id).disabled = busy;
+  for (const id of ['reviewer-login', 'camera-login']) $(id).disabled = busy || !loginConfig;
+  $('forget-login').disabled = busy;
   const api = $('mode').value === 'api';
   $('api-base').disabled = busy || !api; $('token').disabled = busy || !api;
   $('notes').disabled = busy || Boolean(s?.retry) || s?.selected?.status !== 'PENDING';
@@ -155,7 +159,8 @@ async function connect(event) {
   try {
     const isFixture = $('mode').value === 'fixture';
     if (isFixture && !fixtures) throw new Error('Fixture file unavailable. Reload the page or connect to an API.');
-    const client = isFixture ? new FixtureClient(fixtures) : new ApiClient($('api-base').value, $('token').value);
+    const token = isFixture ? '' : $('token').value || reviewerToken(session, loginConfig?.apiBase, $('api-base').value);
+    const client = isFixture ? new FixtureClient(fixtures) : new ApiClient($('api-base').value, token);
     activeFixture = isFixture; clearPhoto(); selection = null; $('notes').value = ''; $('fail').checked = false;
     const next = new ReviewController(client, state => { if (controller === next) render(state); });
     controller = next; $('token').value = ''; $('filter').value = 'PENDING';
@@ -174,4 +179,64 @@ $('reject').addEventListener('click', () => controller.decide('REJECT', $('notes
 $('retry-decision').addEventListener('click', () => controller.decide(null, '', true));
 $('photo-retry').addEventListener('click', loadPhoto);
 $('fail').addEventListener('change', () => { if (activeFixture) controller.client.fail = $('fail').checked; });
+
+async function signIn(role) {
+  if (!loginConfig || controller?.state.busy) return;
+  if (location.origin !== loginConfig.loginOrigin) {
+    location.assign(loginConfig.loginOrigin + '/?login=' + encodeURIComponent(role));
+    return;
+  }
+  try { text('auth-status', 'Opening the AWS application sign-in page…'); await login.signIn(role); }
+  catch { text('auth-status', 'Sign-in could not be started. Check the application settings and retry.'); }
+}
+function displaySession() {
+  $('forget-login').hidden = !session;
+  $('camera-token-tools').hidden = session?.role !== 'camera';
+  text('auth-status', session ? `Signed in for ${session.role === 'reviewer' ? 'reviewer' : 'camera/laptop'} access. ${loginConfig.apiBase ? 'API access is still checked by the backend.' : 'The backend API address is not configured yet.'}` : 'Not signed in. Use your assigned reviewer or camera account.');
+}
+async function forgetSession(expired = false) {
+  session = null; await login?.forget();
+  if (controller?.client?.token) controller.client.token = '';
+  $('mode').value = 'fixture';
+  await connect(); displaySession();
+  if (expired) text('auth-status', 'The access token expired. Sign in again before API operations.');
+}
+$('reviewer-login').addEventListener('click', () => signIn('reviewer'));
+$('camera-login').addEventListener('click', () => signIn('camera'));
+$('forget-login').addEventListener('click', () => { $('mode').value = 'fixture'; forgetSession(); });
+$('copy-camera-token').addEventListener('click', async () => {
+  if (session?.role !== 'camera' || session.user.expired) return;
+  try { await navigator.clipboard.writeText(session.user.access_token); text('auth-status', 'Camera token copied. Use it only in the camera laptop environment, then clear the clipboard.'); }
+  catch { text('auth-status', 'Clipboard access failed. Retry from the camera laptop browser.'); }
+});
+async function initializeAuth() {
+  const callbackURL = location.href;
+  const parameters = new URL(callbackURL).searchParams;
+  const isCallback = location.pathname === '/callback.html';
+  if (isCallback) history.replaceState(null, '', '/');
+  try {
+    const response = await fetch('./auth-config.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error();
+    loginConfig = authConfig(await response.json());
+    login = createAuth(loginConfig);
+    login.manager.events.addAccessTokenExpired(() => forgetSession(true));
+    if (isCallback) {
+      session = await login.complete(callbackURL);
+      if (session.role === 'reviewer' && loginConfig.apiBase) {
+        $('mode').value = 'api'; $('api-base').value = loginConfig.apiBase;
+        await connect();
+      }
+    }
+    displaySession(); updateControls();
+    const requested = parameters.get('login');
+    if (!isCallback && ['reviewer', 'camera'].includes(requested)) {
+      history.replaceState(null, '', '/'); await signIn(requested);
+    }
+  } catch {
+    session = null;
+    text('auth-status', isCallback ? 'Sign-in could not be completed or the callback did not match this browser session. Start sign-in again.' : 'Application sign-in is not configured or unavailable. Fixture mode is still available.');
+    updateControls();
+  }
+}
 await connect();
+await initializeAuth();

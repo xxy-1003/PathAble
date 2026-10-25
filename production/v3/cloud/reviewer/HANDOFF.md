@@ -1,5 +1,10 @@
 # Person 3 handoff
 
+Authentication follow-up: [AUTH_LOGIN.md](AUTH_LOGIN.md) and
+[AUTH_VERIFICATION.md](AUTH_VERIFICATION.md) supersede this original handoff's
+manual-token-only limitation. The `codex/aws-review-login` branch adds managed
+login/PKCE and username-demo support; the original dashboard baseline is below.
+
 Working branch: `codex/aws-review-dashboard`.
 
 Integration base, fetched and inspected on 25 October 2026:

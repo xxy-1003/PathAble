@@ -1,0 +1,11 @@
+{
+  "name": "pathable-reviewer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:auth": "esbuild oidc-vendor.mjs --bundle --format=esm --platform=browser --minify --legal-comments=inline --outfile=vendor/oidc-client.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {"oidc-client-ts": "3.5.0"},
+  "devDependencies": {"esbuild": "0.28.2"}
+}

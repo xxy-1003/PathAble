@@ -1,5 +1,9 @@
 # PathAble human-review dashboard (Person 3)
 
+Application sign-in is now available. Read [AUTH_LOGIN.md](AUTH_LOGIN.md) for
+reviewer/camera username-demo login, local configuration and session handling.
+Use **http://localhost:8003/** for sign-in so the registered callback matches.
+
 Standalone reviewer page for **camera report → human review → authoritative map**.
 The legacy scripted `/api/v1` dashboard remains unchanged. This page uses the
 published **`/api/v2` contract revision 1.1** on Person 2's `codex/aws-backend`
@@ -47,10 +51,11 @@ a reviewer application token. Do not use AWS secret access keys here.
    more if needed. This dashboard uses manual refresh, not background polling.
 
 The token is held only in page memory and cleared from the input after connection.
-Reloading or connecting to fixtures releases that session's client. No localStorage,
-sessionStorage, cookies, URL tokens or console logs are used. There is currently no
-embedded managed-login/PKCE flow or automatic token refresh: Person 2 must supply
-the approved sign-in configuration/process. On 401, reconnect with a fresh token.
+The Reviewer sign-in button uses Cognito managed login with PKCE. Only its temporary
+transaction state/nonce/verifier uses sessionStorage; tokens are never stored there
+or in localStorage. There is no automatic token refresh. On 401, sign in again or
+reconnect with a fresh manually provided token. See AUTH_LOGIN.md for the complete
+setup and the difference between clearing local credentials and provider logout.
 The UI displays the reviewer identity returned in the saved server review; the
 request body cannot choose a reviewer identity.
 
