@@ -299,6 +299,31 @@ class AwsDeviceClientTests(unittest.TestCase):
         self.assertEqual(saved["jpeg_sha256"], record.jpeg_sha256)
         self.assertEqual(jpg_file.read_bytes(), fake_frame)
 
+    def test_case_10_immediate_local_reroute_on_detection(self):
+        """Case 10: Local agent reroutes and speaks immediately without waiting for AWS."""
+        evidence = {
+            "trigger": True,
+            "positive_frames": 8,
+            "total_frames": 10,
+            "current": {"confidence": 0.89},
+        }
+        fake_frame = b"\xff\xd8\xff\xe0" + b"\x55" * 40
+        self.client.immediate_local_reroute = True
+
+        # Trigger detection
+        rec = self.client.on_chair_overlap_trigger(evidence, fake_frame)
+        self.assertIsNotNone(rec)
+
+        # Invariant: Route must IMMEDIATELY be B -> E -> F -> D on device
+        self.assertEqual(self.client.proposed_route, ["B", "E", "F", "D"])
+        # Voice must immediately announce the reroute to the walking user
+        self.assertEqual(len(self.voice.spoken), 1)
+        self.assertIn("Route B to C blocked", self.voice.spoken[0])
+        self.assertIn("B, E, F, D", self.voice.spoken[0])
+
+        # Report must also be queued to AWS outbox
+        self.assertEqual(self.client._submission_queue.qsize(), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -88,6 +88,7 @@ class AwsDeviceClient:
         poll_interval_s: float = 2.5,
         outbox_dir: Optional[Path] = None,
         http_timeout_s: float = 5.0,
+        immediate_local_reroute: bool = True,
     ):
         self.api_base_url = api_base_url.rstrip("/")
         self.api_prefix = "/" + api_prefix.strip("/")
@@ -100,6 +101,7 @@ class AwsDeviceClient:
         self.voice = voice
         self.poll_interval_s = max(0.5, float(poll_interval_s))
         self.http_timeout_s = max(1.0, float(http_timeout_s))
+        self.immediate_local_reroute = immediate_local_reroute
 
         # Outbox storage directory for persistence across restarts
         self.outbox_dir = outbox_dir or (Path(__file__).parent / "calibration" / "outbox")
@@ -221,6 +223,24 @@ class AwsDeviceClient:
         self.set_status(DeviceWorkflowStatus.UPLOADING_EVIDENCE)
         self._submission_queue.put(record)
         logger.info("Queued obstacle report %s for sustained chair overlap", report_id)
+
+        # Immediate local safety decision: reroute and speak immediately on device!
+        if self.immediate_local_reroute and self.route_map:
+            self.route_map.block(self.assigned_edge[0], self.assigned_edge[1])
+            self.proposed_route = list(self.route_map.route(self.assigned_node, self.destination_node))
+            route_str = ", ".join(self.proposed_route)
+            msg = (
+                f"Obstacle detected ahead. Route {self.assigned_edge[0]} to {self.assigned_edge[1]} blocked. "
+                f"Taking alternative route: {route_str}."
+            )
+            self.last_announcement = msg
+            logger.info("IMMEDIATE LOCAL REROUTE: %s", msg)
+            if self.voice:
+                try:
+                    self.voice.speak(msg, force=True, priority=True)
+                except Exception as e:
+                    logger.warning("Voice playback failed: %s", e)
+
         return record
 
     # -------------------------------------------------------------------------
