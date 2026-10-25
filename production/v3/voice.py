@@ -11,6 +11,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import logging
 import queue
+import shutil
+import subprocess
+import sys
 import threading
 import time
 from typing import Literal
@@ -48,6 +51,7 @@ class VoiceGuidance:
 
         self._tts_engine = None
         self._sapi_speaker = None
+        self._powershell = None
 
         if mode in ("auto", "tts"):
             self._init_tts_engine()
@@ -88,6 +92,25 @@ class VoiceGuidance:
         except Exception as e:
             logger.debug("SAPI initialization failed (%s); falling back to mock mode", e)
 
+        # Windows includes System.Speech even when optional Python packages are absent.
+        # Start it in the worker's own process, avoiding cross-thread COM objects.
+        if sys.platform == "win32":
+            executable = shutil.which("powershell.exe")
+            if executable:
+                try:
+                    subprocess.run(
+                        [executable, "-NoProfile", "-NonInteractive", "-Command",
+                         "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Speech; "
+                         "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; $s.Dispose()"],
+                        check=True, capture_output=True, timeout=15,
+                        creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
+                    self._powershell = executable
+                    self.active_mode = "windows_speech"
+                    return
+                except (OSError, subprocess.SubprocessError) as exc:
+                    logger.debug("Built-in Windows speech unavailable: %s", exc)
+
         self.active_mode = "mock"
         logger.info("Voice running in mock/simulated mode (no active audio device)")
 
@@ -106,6 +129,21 @@ class VoiceGuidance:
                 elif self.active_mode == "sapi" and self._sapi_speaker:
                     # 0 = synchronous within the background worker thread
                     self._sapi_speaker.Speak(text, 0)
+                elif self.active_mode == "windows_speech" and self._powershell:
+                    # Text goes through stdin, never into executable PowerShell code.
+                    command = (
+                        "$ErrorActionPreference='Stop'; "
+                        "[Console]::InputEncoding=[System.Text.Encoding]::UTF8; "
+                        "Add-Type -AssemblyName System.Speech; "
+                        "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+                        "try { $s.SetOutputToDefaultAudioDevice(); "
+                        "$s.Speak([Console]::In.ReadToEnd()) } finally { $s.Dispose() }"
+                    )
+                    subprocess.run(
+                        [self._powershell, "-NoProfile", "-NonInteractive", "-Command", command],
+                        input=text, encoding="utf-8", check=True, capture_output=True,
+                        timeout=60, creationflags=subprocess.CREATE_NO_WINDOW,
+                    )
                 else:
                     # Mock mode: sleep briefly to simulate natural speech start
                     time.sleep(0.01)
