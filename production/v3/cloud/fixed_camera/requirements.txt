@@ -1,0 +1,5 @@
+fastapi>=0.115,<1
+pydantic>=2.9,<3
+mangum>=0.19,<1
+boto3>=1.36,<2
+Pillow>=11,<13

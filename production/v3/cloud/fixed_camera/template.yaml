@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: PathAble fixed-camera reports, private photos and human-approved map
+
+Parameters:
+  JwtIssuer:
+    Type: String
+    AllowedPattern: 'https://.+'
+    Description: Trusted OIDC/Cognito issuer, with path but no trailing slash
+  JwtAudience:
+    Type: String
+    MinLength: 1
+    Description: Access-token audience or Cognito app client ID
+  CameraSubject:
+    Type: String
+    MinLength: 1
+    Description: JWT sub of the authorised fixed camera user
+  DashboardOrigin:
+    Type: String
+    AllowedPattern: 'https?://[^/]+'
+    Description: Exact reviewer website origin (no trailing slash)
+  ReviewerSubjects:
+    Type: CommaDelimitedList
+    Description: Allowlisted reviewer JWT sub values (no secrets)
+
+Resources:
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+  PhotosBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpirePhotos
+            Status: Enabled
+            Prefix: photos/
+            ExpirationInDays: 7
+  PhotosPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref PhotosBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt PhotosBucket.Arn
+              - !Sub '${PhotosBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: false
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 5
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref DashboardOrigin
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: [Authorization, Content-Type]
+      Auth:
+        DefaultAuthorizer: AccessToken
+        Authorizers:
+          AccessToken:
+            IdentitySource: '$request.header.Authorization'
+            JwtConfiguration:
+              issuer: !Ref JwtIssuer
+              audience:
+                - !Ref JwtAudience
+            AuthorizationScopes:
+              - pathable/camera
+              - pathable/reviewer
+              - pathable/map
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: fixed_camera.lambda_handler.handler
+      Runtime: python3.12
+      MemorySize: 256
+      Timeout: 15
+      ReservedConcurrentExecutions: 5
+      Environment:
+        Variables:
+          STATE_TABLE: !Ref StateTable
+          PHOTOS_BUCKET: !Ref PhotosBucket
+          CAMERA_ID: camera-b-01
+          CAMERA_NODE: B
+          CAMERA_EDGE: B-C
+          CAMERA_SUBJECT: !Ref CameraSubject
+          REVIEWER_SUBJECTS: !Join [',', !Ref ReviewerSubjects]
+          DASHBOARD_ORIGIN: !Ref DashboardOrigin
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Scan
+                - dynamodb:ConditionCheckItem
+              Resource: !GetAtt StateTable.Arn
+            - Effect: Allow
+              Action: [s3:PutObject, s3:GetObject]
+              Resource: !Sub '${PhotosBucket.Arn}/photos/*'
+      Events:
+        Api:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: '/api/v2/{proxy+}'
+            Method: ANY
+    Metadata:
+      BuildMethod: makefile
+  FunctionLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${ApiFunction}'
+      RetentionInDays: 7
+
+Outputs:
+  ApiUrl:
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/api/v2'
+  TableName:
+    Value: !Ref StateTable
+  PhotosBucketName:
+    Value: !Ref PhotosBucket

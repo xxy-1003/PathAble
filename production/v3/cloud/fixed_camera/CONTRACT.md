@@ -17,8 +17,9 @@ from the legacy `/api/v1` slow-loop workflow. AWS deployment is not yet verified
    map, applies it, reroutes locally, and speaks once per applied version.
    On network failure retain the last known map and show a stale/offline state.
 
-Fixed placement is server configuration: camera `camera-b-01`, node `B`, edge
-`B-C`. Camera location is not junction-marker localisation. Camera identities
+Fixed placement is server configuration: `CAMERA_ID=camera-b-01`,
+`CAMERA_NODE=B`, `CAMERA_EDGE=B-C`. The local development defaults match these.
+Camera location is not junction-marker localisation. Camera identities
 must agree with configuration; clients cannot choose another edge. No COOL,
 Bedrock, metric inference, automatic expiry, or automatic reopening in this API.
 Human approval records a reported obstruction, not measured corridor clearance
@@ -29,7 +30,8 @@ or certified walking safety. Local safety decisions remain on the laptop.
 AWS uses API Gateway JWT authorisation. Send `Authorization: Bearer <access token>`.
 Tokens must contain `pathable/camera`, `pathable/reviewer`, or `pathable/map` scope
 as listed below. Reviewer identity comes from authenticated `sub`, never from a
-request body. Camera token `sub` must match server `CameraSubject` configuration.
+request body and must be in the server `ReviewerSubjects` allowlist. Camera token
+`sub` must match server `CameraSubject` configuration.
 No AWS secret keys belong in the camera client or dashboard. Local mode is
 explicitly unauthenticated and must bind only to `127.0.0.1`.
 
@@ -76,7 +78,7 @@ Pixel overlap is evidence of a region overlap, not a distance or clearance.
 `node:"B"`, `edge_key:"B-C"`, `status`, `expected_map_version`, and nullable
 `review`. Review stores authenticated reviewer, timestamp, action and notes.
 Identical report retry returns its current state; changed body with same ID is
-`409`. Single report review is terminal: same action/version/notes retry returns
+`409`. Single report review is terminal: same reviewer/action/version/notes retry returns
 the same result; changed decision returns `409`. Stale expected map version is
 `409`; fetch the map and report again before a deliberate resubmission.
 
@@ -87,15 +89,16 @@ claiming surveyed metres. Do not interpret `blocked:false` as physical clearance
 B-C is blocked on approval, leaving B-E-F-D as the alternate graph route.
 No marker or physical clearance claims may be inferred from this graph.
 
-Errors use `{detail:...}`: `401/403` unauthenticated/forbidden, `404` unknown
+Errors use `{detail:...}` (gateway auth errors may use `{message:...}`):
+`401/403` unauthenticated/forbidden, `404` unknown
 resource, `409` conflict, `413` oversized photo, `422` invalid payload, `503`
-storage unavailable. Retry timeouts/503 with backoff and the same report ID.
+storage unavailable, `410` photo retention ended. Retry timeouts/503 with backoff and the same report ID.
 Never announce a successful map update before a successful API response.
 
 ## Status and evidence
 
-Contract is published ahead of implementation so clients can work in parallel.
-The implementation's generated `openapi.json` will provide field-level schemas.
+Contract was published ahead of implementation so clients could work in parallel.
+The implementation's generated `openapi.json` provides field-level schemas.
 AWS proof must separately record stack outputs, authenticated upload/report/
 review calls, cross-process durable reads and laptop sync evidence. A template,
 local test or simulated storage is not deployed AWS evidence.
