@@ -11,6 +11,7 @@ Demonstrates:
 """
 
 import argparse
+import json
 from pathlib import Path
 import time
 
@@ -20,6 +21,7 @@ import numpy as np
 from calibrated_observation import PerceptionPipeline
 from local_agent import LocalAgent, RouteMap
 from voice import VoiceGuidance
+from manual_route_demo import ManualRouteDemo
 
 
 BACKENDS = {"auto": cv2.CAP_ANY, "dshow": cv2.CAP_DSHOW, "msmf": cv2.CAP_MSMF}
@@ -108,7 +110,11 @@ def main() -> None:
     parser.add_argument("--same-pose-verified", action="store_true",
                         help="Confirm the fixed camera pose matches the surveyed floor calibration")
     parser.add_argument("--voice-mode", choices=("auto", "tts", "mock"), default="auto")
+    parser.add_argument("--manual-route-demo", action="store_true",
+                        help="Operator assigns junction B; press B to confirm B-C blocked and propose a route")
     args = parser.parse_args()
+    if args.manual_route_demo and (args.start != "B" or args.dest != "D"):
+        parser.error("Use --start B --dest D with --manual-route-demo")
 
     # Check for model file
     if not args.model.is_file():
@@ -128,6 +134,9 @@ def main() -> None:
     route_map = RouteMap.from_file(args.map)
     voice = VoiceGuidance(mode=args.voice_mode)
     agent = LocalAgent(route_map, args.start, args.dest, voice=voice)
+    # A separate graph prevents manual demo confirmations becoming sensor evidence.
+    manual_demo = (ManualRouteDemo(RouteMap.from_file(args.map), voice)
+                   if args.manual_route_demo else None)
     print(f"Voice mode: {voice.active_mode}; timing records cover queue dispatch only.")
     print(f"PathAble Agent Initialized: {args.start} -> {args.dest}")
     print(f"Initial Route: {' -> '.join(agent.current_route)}")
@@ -142,6 +151,9 @@ def main() -> None:
     if not pipeline.projector.ready or not args.same_pose_verified:
         print("Measured calibration / matching fixed pose unverified: distances remain unknown.")
     print("No detection leaves free space unknown; this viewer does not validate walking safety.")
+    if manual_demo:
+        print("MANUAL DEMO: junction B is operator-assigned, not camera-localised.")
+        print("Press B in the camera window to confirm B-C blocked. Alternative route is a map proposal only.")
 
     capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
     if not capture.isOpened():
@@ -183,9 +195,28 @@ def main() -> None:
 
             # Display GUI
             hud_frame = draw_hud(frame, obs, decision, agent, pipeline)
+            if manual_demo:
+                panel = np.zeros((98, hud_frame.shape[1], 3), dtype=np.uint8)
+                lines = [
+                    "MANUAL ROUTE DEMO | Assigned junction B | Q: exit",
+                    "B-C manually confirmed BLOCKED" if manual_demo.confirmed
+                    else "After checking the camera view, press B to confirm B-C blocked",
+                    "Proposed route: " + (" -> ".join(manual_demo.route) or "NONE"),
+                    "Camera status above remains separate; alternative path is unverified.",
+                ]
+                for index, line in enumerate(lines):
+                    cv2.putText(panel, line, (8, 20 + index * 23),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
+                hud_frame = np.vstack([hud_frame, panel])
             cv2.imshow("PathAble Live Navigation", hud_frame)
-            if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
+            key = cv2.waitKey(1) & 0xFF
+            if key in (ord("q"), 27):
                 break
+            if key in (ord("b"), ord("B")) and manual_demo:
+                if manual_demo.confirm_blocked():
+                    print("MANUAL CONFIRMATION: " + json.dumps(manual_demo.last_event))
+                else:
+                    print("B-C is already manually confirmed blocked; no repeat speech.")
     finally:
         capture.release()
         cv2.destroyAllWindows()
