@@ -50,6 +50,39 @@ or explicit command-line options. Never commit a real token in a config file.
 
 ## Operating Commands
 
+### Deployed local demo — 26 October 2026
+
+The isolated demo API is
+`https://pqrtq5b8og.execute-api.ap-southeast-2.amazonaws.com/api/v2`.
+Open `http://localhost:8003/`, complete **Camera / laptop sign-in** as
+`camera-demo`, then choose **Copy camera access token**. Finish each sign-in
+before starting another one; concurrent Cognito login pages can invalidate
+each other's CSRF cookie.
+
+```powershell
+$env:PATHABLE_AUTH_TOKEN = Get-Clipboard -Raw
+Set-Clipboard -Value ''
+./production/v3/run_aws_demo.ps1 -Python ../pathable-person5/.venv/Scripts/python.exe -Model ../pathable-person5/production/v3/models/yolo11s-seg.onnx
+```
+
+This local layout uses the existing environment and YOLO11s model from the
+sibling checkout. Supply your own `-Python` and `-Model` paths on another laptop.
+The launcher pins B / B-C and D, requires an actual model and camera token,
+and keeps tokens out of command-line arguments and files. The local outbox is
+preserved between runs. Remove the environment token when done:
+`Remove-Item Env:PATHABLE_AUTH_TOKEN`.
+
+Camera index 0 must be checked against the connected USB camera before use.
+Do not upload people or private details. The blue image region is a configured
+demo region, not surveyed corridor clearance. Use the separate reviewer tab to
+inspect and approve or reject. No marker localisation or measured distances are
+needed for this workflow.
+
+The operator confirmed the standalone route replay was audible after the SAPI
+thread fix. The actual camera-to-AWS-to-audible-speech run is still pending:
+the USB camera was disconnected during this check. The demo map was manually
+reopened at version 3 with owner approval; the earlier approved report is kept.
+
 ### 1. Run Unit Tests (Person 1)
 
 ```powershell
