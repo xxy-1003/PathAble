@@ -17,7 +17,7 @@ from local_agent import RouteMap
 from mock_backend_server import MockBackendHandler, HTTPServer, MAP_STATE, REPORTS, PHOTOS
 
 
-class TestVoiceRecorder:
+class MockVoiceRecorder:
     def __init__(self):
         self.spoken = []
 
@@ -34,7 +34,7 @@ def run_test():
     print("[1] Mock AWS backend listening on http://127.0.0.1:8000/api/v2")
 
     # 2. Initialize device client
-    voice = TestVoiceRecorder()
+    voice = MockVoiceRecorder()
     route_map = RouteMap({
         "nodes": {"0": "A", "1": "B", "2": "C", "3": "D", "4": "E", "5": "F"},
         "edges": [

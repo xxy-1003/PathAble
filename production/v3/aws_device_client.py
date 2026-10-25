@@ -295,6 +295,7 @@ class AwsDeviceClient:
         self.set_status(DeviceWorkflowStatus.UPLOADING_EVIDENCE)
         self._submission_queue.put(record)
         logger.info("Queued obstacle report %s for sustained chair overlap", report_id)
+
         return record
 
     # -------------------------------------------------------------------------

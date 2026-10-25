@@ -98,6 +98,16 @@ class MockBackendHandler(BaseHTTPRequestHandler):
             print(f"\n[BACKEND REVIEWER] Report rejected. Edge B-C remains UNBLOCKED.")
             self._send_json(200, {"status": "REJECTED", "map_version": MAP_STATE["version"]})
 
+        elif self.path == "/api/v2/reset":
+            with LOCK:
+                MAP_STATE["version"] = 1
+                for edge in MAP_STATE["edges"]:
+                    edge["blocked"] = False
+                REPORTS.clear()
+                PHOTOS.clear()
+            print(f"\n[BACKEND] State RESET to default (Map v1, all edges unblocked, reports cleared).")
+            self._send_json(200, {"status": "RESET", "map_version": 1})
+
         else:
             self._send_json(404, {"detail": "Not found"})
 

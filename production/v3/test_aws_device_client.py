@@ -277,6 +277,29 @@ class AwsDeviceClientTests(unittest.TestCase):
         self.assertEqual(saved["jpeg_sha256"], record.jpeg_sha256)
         self.assertEqual(jpg_file.read_bytes(), fake_frame)
 
+    def test_case_10_detection_waits_for_approved_cloud_map(self):
+        """Case 10: Qualifying detection queues evidence without cloud-approved reroute."""
+        evidence = {
+            "trigger": True,
+            "positive_frames": 8,
+            "total_frames": 10,
+            "current": {"confidence": 0.89},
+        }
+        fake_frame = b"\xff\xd8\xff\xe0" + b"\x55" * 40
+
+        # Trigger detection
+        rec = self.client.on_chair_overlap_trigger(evidence, fake_frame)
+        self.assertIsNotNone(rec)
+
+        # Immediate camera-only proposals remain in --camera-route-demo.
+        # This AWS workflow must wait for the authoritative approved map.
+        self.assertEqual(self.client.proposed_route, ["B", "C", "D"])
+        self.assertEqual(len(self.voice.spoken), 0)
+        self.assertFalse(self.client.is_edge_blocked_in_cloud)
+
+        # Report must also be queued to AWS outbox
+        self.assertEqual(self.client._submission_queue.qsize(), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

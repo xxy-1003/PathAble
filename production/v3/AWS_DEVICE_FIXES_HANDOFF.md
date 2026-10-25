@@ -2,6 +2,12 @@
 
 Follow-up branch: `codex/aws-device-client-fixes`.
 Person 1 base: `a42119c25d76e01eac47ef48bba14d95462509c8`.
+Concurrent Person 1 updates through `0800ec0415e5a0852ac5189f8cb863a7c83e564e`
+were subsequently merged into this follow-up branch. Their mock reset endpoint
+and recorder rename were retained. The new immediate-before-approval behaviour
+from `eced7d9` was excluded from AWS mode because it conflicts with the user's
+human-approval requirement; its new test instead asserts no premature reroute.
+The existing separate `--camera-route-demo` still supports local demo proposals.
 Integration base: `e9e0046ef7851d54c5e2214a1a50638544fdc503`.
 Final commit: the commit containing this handoff, reported in the chat; retrieve
 with `git log -1 --format=%H -- production/v3/AWS_DEVICE_FIXES_HANDOFF.md`.
@@ -28,15 +34,15 @@ submission attempt budget. Existing manual/camera demos remain available.
 
 ## Verification actually performed
 
-- Full v3 regression suite: **244 tests passed, 2 subtests passed**. Two existing
-  test collection/deprecation warnings; no failures.
+- Full v3 regression suite after the concurrent merge: **245 tests passed,
+  2 subtests passed**. One dependency/API deprecation warning; no failures.
 - 31 new regression cases cover restart, corrupt/foreign state, disk failure,
   conflict/permanent/transient errors, stale/incomplete maps, alternative-edge
   closures, route weights, speech checkpoint/restart, independent rejection
   polling, episode rearming, identity matching and STOP queue preservation.
 - `live_navigation.py --help` succeeds and exposes the new options.
 - `git diff --check` succeeds.
-- Final focused device-client/recovery run: **40 tests passed**. The original
+- Final focused device-client/recovery run before the concurrent merge: **40 tests passed**. The original
   localhost mock demonstration also passed with a fresh isolated outbox; its
   printed speech is not audio evidence despite its legacy "LIVE" success label.
 - `verify_device_backend_contract.py` passed over an ephemeral localhost HTTP
