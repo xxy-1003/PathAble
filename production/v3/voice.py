@@ -39,10 +39,12 @@ class VoiceGuidance:
         mode: Literal["auto", "tts", "mock"] = "auto",
         speech_rate: int = 160,
         cooldown_s: float = 2.0,
+        audio_device_id: int | None = None,
     ):
         self.cooldown_s = cooldown_s
         self.speech_rate = speech_rate
         self.requested_mode = mode
+        self.audio_device_id = audio_device_id
         self.active_mode = "mock"
         self._last_spoken_text: str | None = None
         self._last_spoken_time: float = 0.0
@@ -86,6 +88,8 @@ class VoiceGuidance:
             speaker = win32com.client.Dispatch("SAPI.SpVoice")
             try:
                 audio = win32com.client.Dispatch("SAPI.SpMMAudioOut")
+                if self.audio_device_id is not None:
+                    audio.DeviceId = self.audio_device_id
                 speaker.AudioOutputStream = audio
             except Exception:
                 pass
@@ -135,6 +139,8 @@ class VoiceGuidance:
                 thread_sapi_speaker = win32com.client.Dispatch("SAPI.SpVoice")
                 try:
                     audio = win32com.client.Dispatch("SAPI.SpMMAudioOut")
+                    if self.audio_device_id is not None:
+                        audio.DeviceId = self.audio_device_id
                     thread_sapi_speaker.AudioOutputStream = audio
                 except Exception:
                     pass
@@ -237,6 +243,7 @@ class VoiceGuidance:
             self._last_spoken_text = text
             self._last_spoken_time = current_time
             self._queue.put((text, current_time))
+            print(f"\n[VOICE GUIDANCE]: \"{text}\"")
 
             latency_ms = (time.perf_counter() - t0) * 1000.0
             record = SpeechRecord(

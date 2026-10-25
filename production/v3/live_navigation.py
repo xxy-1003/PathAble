@@ -20,7 +20,7 @@ import cv2
 import numpy as np
 
 from calibrated_observation import PerceptionPipeline
-from local_agent import LocalAgent, RouteMap
+from local_agent import LocalAgent, RouteMap, Decision
 from voice import VoiceGuidance
 from manual_route_demo import ManualRouteDemo
 from camera_region_demo import ChairRegionMonitor
@@ -127,6 +127,8 @@ def main() -> None:
                         help="Camera identifier (default: camera-b-01)")
     parser.add_argument("--auth-token", type=str, default=os.getenv("PATHABLE_AUTH_TOKEN", None),
                         help="Bearer access token for AWS API Gateway (default: from PATHABLE_AUTH_TOKEN env)")
+    parser.add_argument("--audio-device", type=int, default=None,
+                        help="Audio output device index for SAPI (e.g. 0 for Headphones, 1 for Speakers)")
     args = parser.parse_args()
 
     demo_count = sum([bool(args.manual_route_demo), bool(args.camera_route_demo), bool(args.aws_workflow)])
@@ -151,17 +153,17 @@ def main() -> None:
         parser.error(f"Map graph not found: {args.map}")
 
     route_map = RouteMap.from_file(args.map)
-    voice = VoiceGuidance(mode=args.voice_mode)
+    voice = VoiceGuidance(mode=args.voice_mode, audio_device_id=args.audio_device)
     agent = LocalAgent(route_map, args.start, args.dest, voice=voice)
-    # A separate graph prevents manual demo confirmations becoming sensor evidence.
-    manual_demo = (ManualRouteDemo(RouteMap.from_file(args.map), voice)
+    # Share route_map when running demo/workflow so local agent updates on reroute
+    manual_demo = (ManualRouteDemo(route_map if args.camera_route_demo else RouteMap.from_file(args.map), voice)
                    if args.manual_route_demo or args.camera_route_demo else None)
     aws_client = (AwsDeviceClient(
         api_base_url=args.api_url,
         api_prefix=args.api_prefix,
         camera_id=args.camera_id,
         auth_token=args.auth_token,
-        route_map=RouteMap.from_file(args.map),
+        route_map=route_map,
         voice=voice,
         assigned_node=args.start,
         assigned_edge=("B", "C"),
@@ -221,14 +223,15 @@ def main() -> None:
             # Process frame into conservative Observation
             obs = pipeline.process_frame(frame, t_now)
 
-            # Pass Observation to LocalAgent
-            decision = agent.observe(obs)
             if monitor:
                 monitor_status = monitor.update(pipeline.last_vision_result, t_now,
                                                 (frame.shape[1], frame.shape[0]))
                 if manual_demo:
                     if monitor_status['trigger'] and not manual_demo.confirmed:
                         manual_demo.propose_from_camera(monitor_status)
+                        agent.map.block("B", "C")
+                        agent.current_route = agent.map.route(agent.current_node, agent.destination)
+                        agent.awaiting_new_corridor = True
                         cv2.imwrite(str(trial_dir / 'trigger.png'), frame)
                         print("CAMERA DEMO TRIGGER: " + json.dumps(manual_demo.last_event))
                     with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
@@ -241,14 +244,43 @@ def main() -> None:
                         _, encoded_jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
                         rec = aws_client.on_chair_overlap_trigger(monitor_status, encoded_jpg.tobytes())
                         if rec:
+                            agent.map.block(*aws_client.assigned_edge)
+                            agent.current_route = agent.map.route(agent.current_node, agent.destination)
+                            agent.awaiting_new_corridor = True
                             cv2.imwrite(str(trial_dir / f"trigger_{rec.report_id}.png"), frame)
-                            print(f"AWS WORKFLOW TRIGGER: Queued report {rec.report_id} to AWS outbox.")
+                            print(f"\nAWS WORKFLOW TRIGGER: Queued report {rec.report_id} to AWS outbox.")
                     with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
                         log.write(json.dumps(dict(timestamp=t_now, mode='aws_workflow',
                             evidence=monitor_status, status=aws_client.status.value,
                             cloud_map_version=aws_client.known_map_version,
                             proposed_route=list(aws_client.proposed_route),
                             blocked_in_cloud=aws_client.is_edge_blocked_in_cloud)) + '\n')
+
+            # Pass Observation to LocalAgent
+            decision = agent.observe(obs)
+
+            # In workflow or camera demo mode, reflect active reroute on HUD and console
+            if aws_client and frozenset(aws_client.assigned_edge) in agent.map.blocked:
+                decision = Decision(
+                    action="REROUTE",
+                    message=f"Route {' to '.join(aws_client.assigned_edge)} blocked. Take route: {' -> '.join(agent.current_route)}",
+                    route=agent.current_route,
+                    blocked_edge=aws_client.assigned_edge,
+                )
+            elif manual_demo and manual_demo.confirmed:
+                decision = Decision(
+                    action="REROUTE",
+                    message=f"Route B to C blocked. Take route: {' -> '.join(agent.current_route)}",
+                    route=agent.current_route,
+                    blocked_edge=("B", "C"),
+                )
+            elif monitor and monitor_status and monitor_status.get('positive_frames', 0) > 0 and not monitor_status.get('trigger', False):
+                if decision.action in ("STOP_AND_ESCALATE", "WAIT_AND_REOBSERVE"):
+                    decision = Decision(
+                        action="WAIT_AND_REOBSERVE",
+                        message="Obstacle detected ahead. Checking path...",
+                        route=agent.current_route,
+                    )
 
             # Print state changes
             if decision.action != last_action or obs.node is not None:
