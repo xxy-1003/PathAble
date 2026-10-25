@@ -72,7 +72,7 @@ def main():
         print(f"Pixel ({x}, {y}): {message}", flush=True)
 
     print("Keep camera fixed. Compare A-H positions with the reference photo before measuring.")
-    print("SPACE freezes/resumes. Click J first: ruler O-J = 9.5 cm in this setup.")
+    print("SPACE freezes/resumes. Click a floor mark and compare with your current tape measurement from O.")
     print("For the calculator case, click the FLOOR beside its bottom edge, not its raised top.")
     print("Distance is along the floor from O, not from the elevated camera lens. Q exits.")
     try:

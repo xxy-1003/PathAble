@@ -116,6 +116,46 @@ def letterbox(frame: np.ndarray, size: int = 640):
     return padded, scale, x0, y0, resized_width, resized_height
 
 
+def floor_contact_candidate(mask: np.ndarray, name: str) -> tuple[int, int] | None:
+    """Reject broad chair-seat bottoms; a thin leg is only a heuristic candidate.
+
+    This cannot prove physical floor contact or recover legs missing from the
+    segmentation. Incomplete/clipped masks deliberately produce no candidate.
+    """
+    ys, xs = np.nonzero(mask)
+    if not len(ys):
+        return None
+    bottom = int(ys.max())
+    if name != "chair":
+        return (int(np.median(xs[ys == bottom])), bottom)
+    top = int(ys.min())
+    height, width = bottom - top + 1, int(xs.max() - xs.min() + 1)
+    if bottom >= mask.shape[0] - 2 or xs.min() <= 1 or xs.max() >= mask.shape[1] - 2:
+        return None
+    leg_height = max(8, int(np.ceil(height * 0.20)))
+    if height < 2 * leg_height:
+        return None
+    start = bottom - leg_height + 1
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(
+        mask[start:bottom + 1].astype(np.uint8), connectivity=8)
+    _, whole_labels, whole_stats, _ = cv2.connectedComponentsWithStats(
+        mask.astype(np.uint8), connectivity=8)
+    for label in range(1, count):
+        x, y, w, h, area = stats[label]
+        # A leg must extend through the lower band, not be a short speck or seat.
+        if y != 0 or h != leg_height or w > max(4, width * 0.18) or area < leg_height * 2:
+            continue
+        bottom_x = np.flatnonzero(labels[-1] == label)
+        if not len(bottom_x):
+            continue
+        cx = int(bottom_x[len(bottom_x) // 2])
+        parent = whole_stats[whole_labels[bottom, cx]]
+        if parent[cv2.CC_STAT_WIDTH] < width * 0.30 or parent[cv2.CC_STAT_TOP] > top + height * 0.50:
+            continue
+        return (cx, bottom)
+    return None
+
+
 class SegmentationDetector:
     def __init__(self, model_path: str | Path):
         if not cv2.__version__.startswith("5."):
@@ -177,11 +217,7 @@ class SegmentationDetector:
                                   (original_width, original_height), interpolation=cv2.INTER_NEAREST) != 0
                 union |= mask
 
-                ys, xs = np.nonzero(mask)
-                contact = None
-                if len(ys):
-                    lowest = int(ys.max())
-                    contact = (int(np.median(xs[ys == lowest])), lowest)
+                contact = floor_contact_candidate(mask, CLASSES[class_ids[index]])
                 original_box = (
                     max(0, round((left - x0) / scale)),
                     max(0, round((top - y0) / scale)),

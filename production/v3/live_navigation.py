@@ -54,7 +54,10 @@ def draw_hud(frame: np.ndarray, obs, decision, agent: LocalAgent, pipeline: Perc
             x1, y1, x2, y2 = item.box
             box_col = (0, 0, 255) if item.coverage[1] >= 0.15 else (0, 200, 255)
             cv2.rectangle(overlay, (x1, y1), (x2, y2), box_col, 2)
-            cv2.putText(overlay, f"{item.name} {item.confidence:.2f}",
+            label = f"{item.name} {item.confidence:.2f}"
+            if item.name == "chair" and item.contact is None:
+                label += " | floor contact unknown"
+            cv2.putText(overlay, label,
                         (x1, max(y1 - 6, 16)), cv2.FONT_HERSHEY_SIMPLEX, 0.52, box_col, 2)
             if item.contact is not None:
                 cv2.circle(overlay, item.contact, 6, (0, 255, 0), -1)

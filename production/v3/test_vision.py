@@ -13,11 +13,38 @@ if HAS_OPENCV:
         VisionResult,
         letterbox,
         zone_coverage,
+        floor_contact_candidate,
     )
 
 
 @unittest.skipUnless(HAS_OPENCV, "OpenCV vision extras are not installed")
 class VisionGeometryTests(unittest.TestCase):
+    def test_chair_seat_without_visible_legs_has_no_contact(self):
+        mask = np.zeros((160, 160), dtype=bool)
+        mask[20:100, 30:130] = True
+        self.assertIsNone(floor_contact_candidate(mask, "chair"))
+
+    def test_connected_thin_chair_leg_produces_candidate_on_mask(self):
+        mask = np.zeros((160, 160), dtype=bool)
+        mask[20:80, 30:130] = True
+        mask[75:130, 40:46] = True
+        point = floor_contact_candidate(mask, "chair")
+        self.assertIsNotNone(point)
+        self.assertEqual(point[1], 129)
+        self.assertTrue(mask[point[1], point[0]])
+
+    def test_disconnected_low_speck_is_not_a_chair_foot(self):
+        mask = np.zeros((160, 160), dtype=bool)
+        mask[20:80, 30:130] = True
+        mask[100:130, 40:43] = True
+        self.assertIsNone(floor_contact_candidate(mask, "chair"))
+
+    def test_chair_cut_off_by_bottom_of_frame_has_no_contact(self):
+        mask = np.zeros((160, 160), dtype=bool)
+        mask[20:80, 30:130] = True
+        mask[75:, 40:46] = True
+        self.assertIsNone(floor_contact_candidate(mask, "chair"))
+
     def test_center_mask_occupies_only_center_floor_zone(self):
         mask = np.zeros((480, 640), dtype=bool)
         mask[192:, 192:448] = True
