@@ -196,13 +196,15 @@ def main() -> None:
             # Display GUI
             hud_frame = draw_hud(frame, obs, decision, agent, pipeline)
             if manual_demo:
-                panel = np.zeros((98, hud_frame.shape[1], 3), dtype=np.uint8)
+                panel = np.zeros((122, hud_frame.shape[1], 3), dtype=np.uint8)
+                playback = voice.get_playback_status()
                 lines = [
-                    "MANUAL ROUTE DEMO | Assigned junction B | Q: exit",
+                    "MANUAL DEMO | Assigned B | B: block | R: repeat route | Q: exit",
                     "B-C manually confirmed BLOCKED" if manual_demo.confirmed
                     else "After checking the camera view, press B to confirm B-C blocked",
                     "Proposed route: " + (" -> ".join(manual_demo.route) or "NONE"),
                     "Camera status above remains separate; alternative path is unverified.",
+                    f"Voice: {playback['mode']} | {playback['state']} (backend status)",
                 ]
                 for index, line in enumerate(lines):
                     cv2.putText(panel, line, (8, 20 + index * 23),
@@ -217,6 +219,12 @@ def main() -> None:
                     print("MANUAL CONFIRMATION: " + json.dumps(manual_demo.last_event))
                 else:
                     print("B-C is already manually confirmed blocked; no repeat speech.")
+            if key in (ord("r"), ord("R")) and manual_demo:
+                if manual_demo.repeat_announcement():
+                    print("REPLAY ROUTE: " + manual_demo.announcement)
+                    print("VOICE STATUS: " + json.dumps(voice.get_playback_status()))
+                else:
+                    print("First press B to confirm the blockage; R repeats the confirmed route.")
     finally:
         capture.release()
         cv2.destroyAllWindows()

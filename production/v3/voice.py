@@ -52,6 +52,7 @@ class VoiceGuidance:
         self._tts_engine = None
         self._sapi_speaker = None
         self._powershell = None
+        self._playback_status = {"state": "idle", "text": "", "error": None}
 
         if mode in ("auto", "tts"):
             self._init_tts_engine()
@@ -123,6 +124,8 @@ class VoiceGuidance:
                 break
             text, queued_at = item
             try:
+                with self._lock:
+                    self._playback_status = {"state": "playing", "text": text, "error": None}
                 if self.active_mode == "pyttsx3" and self._tts_engine:
                     self._tts_engine.say(text)
                     self._tts_engine.runAndWait()
@@ -147,8 +150,13 @@ class VoiceGuidance:
                 else:
                     # Mock mode: sleep briefly to simulate natural speech start
                     time.sleep(0.01)
+                with self._lock:
+                    self._playback_status["state"] = ("simulated" if self.active_mode == "mock"
+                                                       else "completed")
             except Exception as e:
                 logger.warning("TTS playback error (%s); falling back to mock", e)
+                with self._lock:
+                    self._playback_status = {"state": "failed", "text": text, "error": str(e)}
                 self.active_mode = "mock"
             finally:
                 self._queue.task_done()
@@ -210,6 +218,11 @@ class VoiceGuidance:
         """Returns the most recent spoken text."""
         with self._lock:
             return self._last_spoken_text
+
+    def get_playback_status(self) -> dict:
+        """Backend progress only; completed does not prove the user heard audio."""
+        with self._lock:
+            return {**self._playback_status, "mode": self.active_mode}
 
     def get_history(self) -> list[SpeechRecord]:
         """Returns a snapshot copy of all spoken records."""

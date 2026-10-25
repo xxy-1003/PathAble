@@ -45,6 +45,14 @@ class VoiceGuidanceTests(unittest.TestCase):
         self.voice.speak("   ")
         self.assertEqual(len(self.voice.get_history()), 0)
 
+    def test_mock_playback_is_reported_as_simulated(self):
+        self.voice.speak('Route replay test')
+        self.voice.wait_until_done()
+        status = self.voice.get_playback_status()
+        self.assertEqual(status['state'], 'simulated')
+        self.assertEqual(status['mode'], 'mock')
+        self.assertEqual(status['text'], 'Route replay test')
+
 
 if __name__ == "__main__":
     unittest.main()

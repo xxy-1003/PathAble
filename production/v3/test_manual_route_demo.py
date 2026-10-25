@@ -34,3 +34,14 @@ def test_no_alternative_produces_stop_without_direction():
     demo.confirm_blocked()
     assert demo.route == ()
     assert 'No alternative route' in voice.speak.call_args.args[0]
+
+
+def test_replay_requires_confirmation_and_keeps_route_unchanged():
+    voice = Mock()
+    demo = ManualRouteDemo(RouteMap.from_file(MAP), voice)
+    assert not demo.repeat_announcement()
+    voice.speak.assert_not_called()
+    demo.confirm_blocked()
+    assert demo.repeat_announcement()
+    assert demo.route == ('B', 'E', 'F', 'D')
+    assert voice.speak.call_count == 2
