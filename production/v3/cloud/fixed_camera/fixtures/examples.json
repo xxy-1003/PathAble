@@ -1,0 +1,210 @@
+{
+  "evidence_label": "SYNTHETIC CONTRACT FIXTURE ONLY",
+  "presign_request": {
+    "client_id": "camera-b-01",
+    "content_type": "image/jpeg",
+    "size_bytes": 629,
+    "sha256": "8bdf2ca9e2bbd32798a072360b254cebd5b9118004422484e7ff1354bd27d343"
+  },
+  "presign_response": {
+    "photo_id": "67282b30-5afc-4eee-bd01-b55de06c6298",
+    "method": "PUT",
+    "url": "https://private-upload.example.invalid/opaque-signed-url",
+    "headers": {
+      "Content-Type": "image/jpeg",
+      "Content-Length": "629",
+      "If-None-Match": "*",
+      "x-amz-checksum-sha256": "i98sqeK70yeYoHI2CyVM69W5EYAEQiSE5/8TVL0n00M=",
+      "x-amz-server-side-encryption": "AES256"
+    },
+    "expires_in": 300
+  },
+  "report_request": {
+    "schema_id": "pathable.human-review.report.v1",
+    "event_id": "106ec786-00f6-4f97-819d-01b492ae0768",
+    "client_id": "camera-b-01",
+    "timestamp": "2026-10-25T09:00:00Z",
+    "edge_key": "B-C",
+    "junction": "B",
+    "destination": "D",
+    "detection_evidence": {
+      "obstacle_class": "chair",
+      "confidence": 0.85,
+      "overlap_count": 6,
+      "frame_count": 10,
+      "evidence_status": "client_reported"
+    },
+    "image": {
+      "photo_id": "67282b30-5afc-4eee-bd01-b55de06c6298",
+      "sha256": "8bdf2ca9e2bbd32798a072360b254cebd5b9118004422484e7ff1354bd27d343"
+    },
+    "distance_m": null,
+    "clearance_m": null,
+    "measurement_source": null
+  },
+  "pending_response": {
+    "schema_id": "pathable.human-review.report.v1",
+    "event_id": "106ec786-00f6-4f97-819d-01b492ae0768",
+    "client_id": "camera-b-01",
+    "timestamp": "2026-10-25T09:00:00Z",
+    "edge_key": "B-C",
+    "junction": "B",
+    "destination": "D",
+    "detection_evidence": {
+      "obstacle_class": "chair",
+      "confidence": 0.85,
+      "overlap_count": 6,
+      "frame_count": 10,
+      "evidence_status": "client_reported"
+    },
+    "image": {
+      "photo_id": "67282b30-5afc-4eee-bd01-b55de06c6298",
+      "sha256": "8bdf2ca9e2bbd32798a072360b254cebd5b9118004422484e7ff1354bd27d343"
+    },
+    "distance_m": null,
+    "clearance_m": null,
+    "measurement_source": null,
+    "ticket_id": "T-106ec786-00f6-4f97-819d-01b492ae0768",
+    "status": "PENDING",
+    "received_at": "2026-10-25T09:00:01Z",
+    "expected_map_version": 1,
+    "review": null
+  },
+  "review_request": {
+    "action": "APPROVE",
+    "expected_map_version": 1,
+    "notes": "Reviewed synthetic fixture"
+  },
+  "map_before": {
+    "map_id": "prototype",
+    "version": 1,
+    "nodes": {
+      "0": "A",
+      "1": "B",
+      "2": "C",
+      "3": "D",
+      "4": "E",
+      "5": "F"
+    },
+    "edges": [
+      {
+        "from": "A",
+        "to": "B",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "B",
+        "to": "C",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "C",
+        "to": "D",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "B",
+        "to": "E",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "E",
+        "to": "F",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "F",
+        "to": "D",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      }
+    ]
+  },
+  "map_after_approval": {
+    "map_id": "prototype",
+    "version": 2,
+    "nodes": {
+      "0": "A",
+      "1": "B",
+      "2": "C",
+      "3": "D",
+      "4": "E",
+      "5": "F"
+    },
+    "edges": [
+      {
+        "from": "A",
+        "to": "B",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "B",
+        "to": "C",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": true
+      },
+      {
+        "from": "C",
+        "to": "D",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "B",
+        "to": "E",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "E",
+        "to": "F",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      },
+      {
+        "from": "F",
+        "to": "D",
+        "distance": null,
+        "distance_source": "unmeasured",
+        "route_weight": 1,
+        "blocked": false
+      }
+    ]
+  },
+  "version_response": {
+    "map_id": "prototype",
+    "version": 2
+  },
+  "duplicate_status_code": 200,
+  "conflict_response": {
+    "detail": "Report ID already used with a different payload"
+  }
+}

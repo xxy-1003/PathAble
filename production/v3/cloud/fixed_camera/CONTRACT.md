@@ -1,5 +1,9 @@
 # Fixed-camera API contract v1.0
 
+See [revision 1.1 handoff](HANDOFF.md) for the canonical event schema, direct
+upload flow, ticket aliases and example fixtures. The compact routes below remain
+supported; new clients should follow revision 1.1.
+
 Published contract for Person 1 (camera and laptop), Person 2 (backend), and
 Person 3 (reviewer dashboard). Base path: `/api/v2`. This is a separate service
 from the legacy `/api/v1` slow-loop workflow. AWS deployment is not yet verified.
