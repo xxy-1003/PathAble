@@ -1,7 +1,8 @@
 from typing import Literal
 from uuid import UUID
+from datetime import timedelta
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class StrictModel(BaseModel):
@@ -17,6 +18,67 @@ class CameraAssignment(StrictModel):
 class PhotoUpload(StrictModel):
     camera_id: str = Field(min_length=1, max_length=80)
     jpeg_base64: str = Field(min_length=1, max_length=699052)
+
+
+class PresignInput(StrictModel):
+    client_id: str = Field(min_length=1, max_length=80)
+    content_type: Literal["image/jpeg"]
+    size_bytes: int = Field(ge=1, le=524288, strict=True)
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class PresignResult(StrictModel):
+    photo_id: UUID
+    method: Literal["PUT"]
+    url: str
+    headers: dict[str, str]
+    expires_in: Literal[300]
+
+
+class ImageReference(StrictModel):
+    photo_id: UUID
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class DetectionEvidence(StrictModel):
+    obstacle_class: str = Field(min_length=1, max_length=80)
+    confidence: float = Field(ge=0, le=1)
+    overlap_count: int = Field(ge=1, le=10000, strict=True)
+    frame_count: int = Field(ge=1, le=10000, strict=True)
+    evidence_status: Literal["client_reported"]
+
+    @model_validator(mode="after")
+    def valid_overlap(self):
+        if self.overlap_count > self.frame_count:
+            raise ValueError("overlap_count cannot exceed frame_count")
+        return self
+
+
+class HumanReportInput(StrictModel):
+    schema_id: Literal["pathable.human-review.report.v1"]
+    event_id: UUID
+    client_id: str = Field(min_length=1, max_length=80)
+    timestamp: AwareDatetime
+    edge_key: Literal["B-C"]
+    junction: Literal["B"]
+    destination: Literal["D"]
+    detection_evidence: DetectionEvidence
+    image: ImageReference
+    distance_m: None
+    clearance_m: None
+    measurement_source: None
+
+    @field_validator("timestamp")
+    @classmethod
+    def utc_timestamp(cls, value):
+        if value.utcoffset() != timedelta(0):
+            raise ValueError("timestamp must be UTC (Z or +00:00)")
+        return value
+
+    def compact(self):
+        evidence = self.detection_evidence.model_dump(exclude={"evidence_status"})
+        return ReportInput(report_id=self.event_id, camera_id=self.client_id,
+                           observed_at=self.timestamp, photo_id=self.image.photo_id, **evidence)
 
 
 class ReportInput(StrictModel):
@@ -57,6 +119,15 @@ class ReviewRecord(ReviewInput):
 
 
 class ReportRecord(ReportInput):
+    schema_id: str
+    event_id: UUID
+    client_id: str
+    timestamp: AwareDatetime
+    junction: Literal["B"]
+    destination: Literal["D"]
+    detection_evidence: DetectionEvidence
+    image: ImageReference
+    ticket_id: str
     payload_sha256: str
     received_at: AwareDatetime
     node: Literal["B"]

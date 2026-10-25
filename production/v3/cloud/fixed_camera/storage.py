@@ -1,10 +1,12 @@
 """Storage adapters. AWS uses conditional writes and atomic review/map transactions."""
 import copy
+import base64
 import json
 from decimal import Decimal
 from threading import RLock
 
 from .models import initial_map
+from .evidence import upload_headers
 
 
 class Conflict(Exception):
@@ -56,7 +58,19 @@ class MemoryPhotos:
         self.photos = {}
 
     def put(self, photo_id, data):
+        if photo_id in self.photos:
+            raise Conflict("Photo already uploaded")
         self.photos[photo_id] = data
+
+    def get(self, photo_id):
+        if photo_id not in self.photos:
+            raise ValueError("Image has not been uploaded")
+        return self.photos[photo_id]
+
+    def presign(self, photo_id, size_bytes, sha256):
+        return {"photo_id": photo_id, "method": "PUT",
+                "url": f"/api/v2/uploads/{photo_id}/content",
+                "headers": upload_headers(size_bytes, sha256), "expires_in": 300}
 
     def url(self, photo_id):
         return f"/api/v2/photos/{photo_id}/content"
@@ -168,3 +182,28 @@ class S3Photos:
     def url(self, photo_id):
         return self.client.generate_presigned_url("get_object", Params={
             "Bucket": self.bucket, "Key": f"photos/{photo_id}.jpg"}, ExpiresIn=300)
+
+    def get(self, photo_id):
+        from botocore.exceptions import ClientError
+        try:
+            result = self.client.get_object(Bucket=self.bucket, Key=f"photos/{photo_id}.jpg")
+        except ClientError as exc:
+            if exc.response["Error"]["Code"] in ("NoSuchKey", "404"):
+                raise ValueError("Image has not been uploaded") from exc
+            raise
+        body = result["Body"]
+        try:
+            if result["ContentLength"] > 524288 or result["ContentType"] != "image/jpeg":
+                raise ValueError("Invalid image content or size")
+            return body.read(524289)
+        finally:
+            body.close()
+
+    def presign(self, photo_id, size_bytes, sha256):
+        params = {"Bucket": self.bucket, "Key": f"photos/{photo_id}.jpg",
+                  "ContentType": "image/jpeg", "ContentLength": size_bytes,
+                  "ChecksumSHA256": base64.b64encode(bytes.fromhex(sha256)).decode(),
+                  "IfNoneMatch": "*", "ServerSideEncryption": "AES256"}
+        url = self.client.generate_presigned_url("put_object", Params=params, ExpiresIn=300)
+        return {"photo_id": photo_id, "method": "PUT", "url": url,
+                "headers": upload_headers(size_bytes, sha256), "expires_in": 300}

@@ -1,6 +1,7 @@
 # Person 2: fixed-camera AWS backend
 
-Read [CONTRACT.md](CONTRACT.md) first. Person 1 owns the camera and laptop
+Read the [revision 1.1 handoff and fixtures](HANDOFF.md) first, followed by
+[CONTRACT.md](CONTRACT.md) for compatibility details. Person 1 owns the camera and laptop
 clients; Person 3 owns the reviewer UI. This package preserves the existing
 `cloud/api`, slow-loop, perception and navigation modules without changing their
 behaviour. Use this service's `/api/v2` URLs for the new phase.
@@ -8,7 +9,8 @@ behaviour. Use this service's `/api/v2` URLs for the new phase.
 ## Current evidence
 
 - Shared API contract published before implementation.
-- Local memory mode is volatile, unauthenticated and for development only.
+- Local server defaults to durable SQLite and file photos on localhost. Explicit
+  memory mode is volatile. Both are unauthenticated development modes, not AWS.
 - DynamoDB/S3 adapter tests use Moto emulation, not a real AWS account.
 - SAM template and build files are deployment preparation, not deployment proof.
 - AWS account, deployed API, durable AWS restart checks and Person 1's live
@@ -24,7 +26,9 @@ python -m production.v3.cloud.fixed_camera.local_server
 ```
 
 Open `http://127.0.0.1:8002/docs` for interactive request schemas. State and photos
-disappear when this process exits. Keep this unauthenticated server on localhost.
+persist in the ignored `.test-tmp/fixed-camera` folder. Use `--volatile` for a
+throwaway memory-only session, or `--state-dir <folder>` for a dedicated local
+demo. Keep this unauthenticated server on localhost.
 The committed `openapi.json` contains request and response schemas for teammates.
 It describes bearer authentication for AWS; localhost omits it for development.
 
@@ -37,7 +41,8 @@ python -m production.v3.cloud.fixed_camera.export_openapi
 ## Durable design
 
 One DynamoDB on-demand table stores separate `MAP#prototype`, `REPORT#<UUID>`,
-and `PHOTO#<UUID>` items. No module-global dictionary or local JSON is used by
+and `PHOTO#<UUID>` items. A report and its one-to-one review ticket are stored
+together in the REPORT item, with deterministic `T-<event_id>` identity. No module-global dictionary or local JSON is used by
 the AWS handler. Each invocation reads the current map using consistent reads.
 Report ID conditional creation makes retries safe. Review atomically updates
 the report and checks/replaces the map with a version condition. Concurrent
@@ -49,6 +54,10 @@ days. Report/audit metadata remains in DynamoDB. Photo endpoints return 410
 after retention. JPEG files are size-limited and decoded/verified server-side;
 this does not automatically remove personal information. Clients handle privacy
 before upload. Unreferenced photos are also covered by the bucket lifecycle.
+The canonical upload route returns a 300-second, checksum-bound, no-overwrite
+S3 PUT URL; the compatibility `/photos` route accepts base64. The report intake
+reads the object and checks its actual JPEG bytes against the declared checksum
+and size before storing a pending ticket.
 
 The prototype listing endpoint uses bounded DynamoDB scans with continuation
 cursors; follow `next_cursor` even when `items` is empty. This is for a small
@@ -60,6 +69,9 @@ Map route weights are abstract, equal weights. All distances and clearances
 remain null. Approval blocks B-C but does not certify that B-E-F-D is safe.
 
 ## AWS setup and deployment — perform only after access is available
+
+See [OPERATIONS.md](OPERATIONS.md) for exact resource inventory, Cognito setup,
+operational logs, privacy/retention boundaries and cleanup instructions.
 
 1. Obtain the team/institution AWS account and permission to create a SAM stack,
    Lambda IAM execution role, API Gateway HTTP API, DynamoDB table, S3 bucket,

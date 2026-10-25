@@ -54,6 +54,18 @@ Resources:
         BlockPublicPolicy: true
         IgnorePublicAcls: true
         RestrictPublicBuckets: true
+      CorsConfiguration:
+        CorsRules:
+          - AllowedOrigins: [!Ref DashboardOrigin]
+            AllowedMethods: [PUT, GET, HEAD]
+            AllowedHeaders:
+              - Content-Type
+              - Content-Length
+              - If-None-Match
+              - x-amz-checksum-sha256
+              - x-amz-server-side-encryption
+            ExposedHeaders: [ETag]
+            MaxAge: 300
       LifecycleConfiguration:
         Rules:
           - Id: ExpirePhotos
@@ -132,6 +144,9 @@ Resources:
             - Effect: Allow
               Action: [s3:PutObject, s3:GetObject]
               Resource: !Sub '${PhotosBucket.Arn}/photos/*'
+            - Effect: Allow
+              Action: s3:ListBucket
+              Resource: !GetAtt PhotosBucket.Arn
       Events:
         Api:
           Type: HttpApi

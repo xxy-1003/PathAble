@@ -19,8 +19,10 @@ def contract():
                 scopes = ["pathable/camera", "pathable/reviewer", "pathable/map"]
             elif path.startswith("/api/v2/map"):
                 scopes = ["pathable/map", "pathable/reviewer"]
-            elif method == "post" and path in ("/api/v2/photos", "/api/v2/reports"):
+            elif method == "post" and path in ("/api/v2/photos", "/api/v2/reports", "/api/v2/uploads/presign"):
                 scopes = ["pathable/camera"]
+            elif path == "/api/v2/reports/{report_id}" and method == "get":
+                scopes = ["pathable/camera", "pathable/reviewer"]
             else:
                 scopes = ["pathable/reviewer"]
             operation["x-required-scopes-any-of"] = scopes

@@ -2,10 +2,51 @@
   "openapi": "3.1.0",
   "info": {
     "title": "PathAble Fixed Camera API",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "description": "Fixed-camera reports at B / B-C. See CONTRACT.md for endpoint scopes, identity allowlists, retry semantics and evidence boundaries. AWS deployment unverified."
   },
   "paths": {
+    "/api/v2/uploads/presign": {
+      "post": {
+        "summary": "Presign Upload",
+        "operationId": "presign_upload_api_v2_uploads_presign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera"
+        ]
+      }
+    },
     "/api/v2/health": {
       "get": {
         "summary": "Health",
@@ -79,7 +120,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ReportInput"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/HumanReportInput"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReportInput"
+                  }
+                ],
+                "title": "Body"
               }
             }
           }
@@ -192,6 +241,89 @@
         ]
       }
     },
+    "/api/v2/tickets": {
+      "get": {
+        "summary": "List Reports",
+        "operationId": "list_reports_api_v2_tickets_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PENDING",
+                    "APPROVED",
+                    "REJECTED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
     "/api/v2/reports/{report_id}": {
       "get": {
         "summary": "Get Report",
@@ -205,6 +337,49 @@
               "type": "string",
               "format": "uuid",
               "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera",
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/tickets/{ticket_id}": {
+      "get": {
+        "summary": "Get Ticket",
+        "operationId": "get_ticket_api_v2_tickets__ticket_id__get",
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Id"
             }
           }
         ],
@@ -374,10 +549,105 @@
           "pathable/reviewer"
         ]
       }
+    },
+    "/api/v2/tickets/{ticket_id}/review": {
+      "post": {
+        "summary": "Review Ticket",
+        "operationId": "review_ticket_api_v2_tickets__ticket_id__review_post",
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
     }
   },
   "components": {
     "schemas": {
+      "DetectionEvidence": {
+        "properties": {
+          "obstacle_class": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Obstacle Class"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "overlap_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Overlap Count"
+          },
+          "frame_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Frame Count"
+          },
+          "evidence_status": {
+            "type": "string",
+            "const": "client_reported",
+            "title": "Evidence Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "obstacle_class",
+          "confidence",
+          "overlap_count",
+          "frame_count",
+          "evidence_status"
+        ],
+        "title": "DetectionEvidence"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -415,6 +685,102 @@
           "map_version"
         ],
         "title": "Health"
+      },
+      "HumanReportInput": {
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "const": "pathable.human-review.report.v1",
+            "title": "Schema Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "edge_key": {
+            "type": "string",
+            "const": "B-C",
+            "title": "Edge Key"
+          },
+          "junction": {
+            "type": "string",
+            "const": "B",
+            "title": "Junction"
+          },
+          "destination": {
+            "type": "string",
+            "const": "D",
+            "title": "Destination"
+          },
+          "detection_evidence": {
+            "$ref": "#/components/schemas/DetectionEvidence"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageReference"
+          },
+          "distance_m": {
+            "type": "null",
+            "title": "Distance M"
+          },
+          "clearance_m": {
+            "type": "null",
+            "title": "Clearance M"
+          },
+          "measurement_source": {
+            "type": "null",
+            "title": "Measurement Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_id",
+          "event_id",
+          "client_id",
+          "timestamp",
+          "edge_key",
+          "junction",
+          "destination",
+          "detection_evidence",
+          "image",
+          "distance_m",
+          "clearance_m",
+          "measurement_source"
+        ],
+        "title": "HumanReportInput"
+      },
+      "ImageReference": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "sha256"
+        ],
+        "title": "ImageReference"
       },
       "MapEdge": {
         "properties": {
@@ -537,6 +903,81 @@
           "jpeg_base64"
         ],
         "title": "PhotoUpload"
+      },
+      "PresignInput": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "content_type": {
+            "type": "string",
+            "const": "image/jpeg",
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "maximum": 524288.0,
+            "minimum": 1.0,
+            "title": "Size Bytes"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "client_id",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "PresignInput"
+      },
+      "PresignResult": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "method": {
+            "type": "string",
+            "const": "PUT",
+            "title": "Method"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          },
+          "expires_in": {
+            "type": "integer",
+            "const": 300,
+            "title": "Expires In"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "method",
+          "url",
+          "headers",
+          "expires_in"
+        ],
+        "title": "PresignResult"
       },
       "ReportInput": {
         "properties": {
@@ -700,6 +1141,44 @@
             "type": "null",
             "title": "Measurement Source"
           },
+          "schema_id": {
+            "type": "string",
+            "title": "Schema Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "junction": {
+            "type": "string",
+            "const": "B",
+            "title": "Junction"
+          },
+          "destination": {
+            "type": "string",
+            "const": "D",
+            "title": "Destination"
+          },
+          "detection_evidence": {
+            "$ref": "#/components/schemas/DetectionEvidence"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageReference"
+          },
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id"
+          },
           "payload_sha256": {
             "type": "string",
             "title": "Payload Sha256"
@@ -754,6 +1233,15 @@
           "confidence",
           "overlap_count",
           "frame_count",
+          "schema_id",
+          "event_id",
+          "client_id",
+          "timestamp",
+          "junction",
+          "destination",
+          "detection_evidence",
+          "image",
+          "ticket_id",
           "payload_sha256",
           "received_at",
           "node",

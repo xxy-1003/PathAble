@@ -68,7 +68,17 @@
     "status": "PENDING",
     "received_at": "2026-10-25T09:00:01Z",
     "expected_map_version": 1,
-    "review": null
+    "review": null,
+    "report_id": "106ec786-00f6-4f97-819d-01b492ae0768",
+    "camera_id": "camera-b-01",
+    "photo_id": "67282b30-5afc-4eee-bd01-b55de06c6298",
+    "observed_at": "2026-10-25T09:00:00Z",
+    "obstacle_class": "chair",
+    "confidence": 0.85,
+    "overlap_count": 6,
+    "frame_count": 10,
+    "node": "B",
+    "payload_sha256": "a5e07b199cfff596ee0735b2b9603bcfb1c5ef79f17721bb16e4611fe7c35051"
   },
   "review_request": {
     "action": "APPROVE",
@@ -206,5 +216,53 @@
   "duplicate_status_code": 200,
   "conflict_response": {
     "detail": "Report ID already used with a different payload"
+  },
+  "review_response": {
+    "report": {
+      "schema_id": "pathable.human-review.report.v1",
+      "event_id": "106ec786-00f6-4f97-819d-01b492ae0768",
+      "client_id": "camera-b-01",
+      "timestamp": "2026-10-25T09:00:00Z",
+      "edge_key": "B-C",
+      "junction": "B",
+      "destination": "D",
+      "detection_evidence": {
+        "obstacle_class": "chair",
+        "confidence": 0.85,
+        "overlap_count": 6,
+        "frame_count": 10,
+        "evidence_status": "client_reported"
+      },
+      "image": {
+        "photo_id": "67282b30-5afc-4eee-bd01-b55de06c6298",
+        "sha256": "8bdf2ca9e2bbd32798a072360b254cebd5b9118004422484e7ff1354bd27d343"
+      },
+      "distance_m": null,
+      "clearance_m": null,
+      "measurement_source": null,
+      "ticket_id": "T-106ec786-00f6-4f97-819d-01b492ae0768",
+      "status": "APPROVED",
+      "received_at": "2026-10-25T09:00:01Z",
+      "expected_map_version": 1,
+      "review": {
+        "action": "APPROVE",
+        "expected_map_version": 1,
+        "notes": "Reviewed synthetic fixture",
+        "reviewer_id": "fixture-reviewer",
+        "reviewed_at": "2026-10-25T09:01:00Z",
+        "map_version": 2
+      },
+      "report_id": "106ec786-00f6-4f97-819d-01b492ae0768",
+      "camera_id": "camera-b-01",
+      "photo_id": "67282b30-5afc-4eee-bd01-b55de06c6298",
+      "observed_at": "2026-10-25T09:00:00Z",
+      "obstacle_class": "chair",
+      "confidence": 0.85,
+      "overlap_count": 6,
+      "frame_count": 10,
+      "node": "B",
+      "payload_sha256": "a5e07b199cfff596ee0735b2b9603bcfb1c5ef79f17721bb16e4611fe7c35051"
+    },
+    "map_version": 2
   }
 }
