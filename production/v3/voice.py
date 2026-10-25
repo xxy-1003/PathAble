@@ -84,7 +84,11 @@ class VoiceGuidance:
             import win32com.client  # type: ignore
 
             speaker = win32com.client.Dispatch("SAPI.SpVoice")
-            # Test if audio rendering works
+            try:
+                audio = win32com.client.Dispatch("SAPI.SpMMAudioOut")
+                speaker.AudioOutputStream = audio
+            except Exception:
+                pass
             speaker.Rate = int((self.speech_rate - 150) / 25)
             self._sapi_speaker = speaker
             self.active_mode = "sapi"
@@ -117,6 +121,28 @@ class VoiceGuidance:
 
     def _speech_worker(self) -> None:
         """Background thread executing speech so local navigation loop is never blocked."""
+        if sys.platform == "win32":
+            try:
+                import pythoncom  # type: ignore
+                pythoncom.CoInitialize()
+            except ImportError:
+                pass
+
+        thread_sapi_speaker = None
+        if self.active_mode == "sapi":
+            try:
+                import win32com.client  # type: ignore
+                thread_sapi_speaker = win32com.client.Dispatch("SAPI.SpVoice")
+                try:
+                    audio = win32com.client.Dispatch("SAPI.SpMMAudioOut")
+                    thread_sapi_speaker.AudioOutputStream = audio
+                except Exception:
+                    pass
+                thread_sapi_speaker.Rate = int((self.speech_rate - 150) / 25)
+            except Exception as e:
+                logger.warning("Failed to initialize SAPI in worker thread: %s", e)
+                thread_sapi_speaker = None
+
         while True:
             item = self._queue.get()
             if item is None:
@@ -129,9 +155,10 @@ class VoiceGuidance:
                 if self.active_mode == "pyttsx3" and self._tts_engine:
                     self._tts_engine.say(text)
                     self._tts_engine.runAndWait()
-                elif self.active_mode == "sapi" and self._sapi_speaker:
+                elif self.active_mode == "sapi" and (thread_sapi_speaker or self._sapi_speaker):
                     # 0 = synchronous within the background worker thread
-                    self._sapi_speaker.Speak(text, 0)
+                    speaker = thread_sapi_speaker or self._sapi_speaker
+                    speaker.Speak(text, 0)
                 elif self.active_mode == "windows_speech" and self._powershell:
                     # Text goes through stdin, never into executable PowerShell code.
                     command = (
@@ -139,7 +166,7 @@ class VoiceGuidance:
                         "[Console]::InputEncoding=[System.Text.Encoding]::UTF8; "
                         "Add-Type -AssemblyName System.Speech; "
                         "$s=New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-                        "try { $s.SetOutputToDefaultAudioDevice(); "
+                        "try { "
                         "$s.Speak([Console]::In.ReadToEnd()) } finally { $s.Dispose() }"
                     )
                     subprocess.run(
@@ -160,6 +187,13 @@ class VoiceGuidance:
                 self.active_mode = "mock"
             finally:
                 self._queue.task_done()
+
+        if sys.platform == "win32":
+            try:
+                import pythoncom  # type: ignore
+                pythoncom.CoUninitialize()
+            except Exception:
+                pass
 
     def speak(
         self,

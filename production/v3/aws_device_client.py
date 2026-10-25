@@ -443,9 +443,9 @@ class AwsDeviceClient:
             self._announce_route_if_new(version)
         else:
             # Edge is still unblocked in the authoritative map
-            if self._current_report is not None:
+            if self._current_report is not None and self._current_report.submitted_at:
                 self.set_status(DeviceWorkflowStatus.AWAITING_REVIEW)
-            else:
+            elif self._current_report is None:
                 self.set_status(DeviceWorkflowStatus.MONITORING)
 
     def _announce_route_if_new(self, map_version: int) -> bool:

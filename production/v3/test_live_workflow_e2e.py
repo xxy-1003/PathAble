@@ -12,8 +12,11 @@ import threading
 import time
 import urllib.request
 
+from pathlib import Path
+import tempfile
 from aws_device_client import AwsDeviceClient, DeviceWorkflowStatus
 from local_agent import RouteMap
+import mock_backend_server
 from mock_backend_server import MockBackendHandler, HTTPServer, MAP_STATE, REPORTS, PHOTOS
 
 
@@ -27,11 +30,17 @@ class MockVoiceRecorder:
 
 
 def run_test():
-    # 1. Start mock backend on 127.0.0.1:8000
-    server = HTTPServer(("127.0.0.1", 8000), MockBackendHandler)
+    PHOTOS.clear()
+    REPORTS.clear()
+    MAP_STATE["version"] = 1
+    for edge in MAP_STATE["edges"]:
+        edge["blocked"] = False
+    # 1. Start mock backend on 127.0.0.1 on an available port
+    server = HTTPServer(("127.0.0.1", 0), MockBackendHandler)
+    port = server.server_port
     server_thread = threading.Thread(target=server.serve_forever, daemon=True)
     server_thread.start()
-    print("[1] Mock AWS backend listening on http://127.0.0.1:8000/api/v2")
+    print(f"[1] Mock AWS backend listening on http://127.0.0.1:{port}/api/v2")
 
     # 2. Initialize device client
     voice = MockVoiceRecorder()
@@ -47,8 +56,9 @@ def run_test():
         ],
     })
 
+    tmp_dir = tempfile.TemporaryDirectory()
     client = AwsDeviceClient(
-        api_base_url="http://127.0.0.1:8000",
+        api_base_url=f"http://127.0.0.1:{port}",
         api_prefix="/api/v2",
         camera_id="camera-b-01",
         assigned_node="B",
@@ -57,6 +67,7 @@ def run_test():
         route_map=route_map,
         voice=voice,
         poll_interval_s=1.0,
+        outbox_dir=Path(tmp_dir.name),
     )
     client.start()
     print("[2] AwsDeviceClient started. Initial route: B -> C -> D")
@@ -83,7 +94,7 @@ def run_test():
             time.sleep(0.2)
 
         assert client.status == DeviceWorkflowStatus.AWAITING_REVIEW, f"Expected AWAITING_REVIEW, got {client.status}"
-        assert len(PHOTOS) == 1, "Photo was not uploaded to backend"
+        assert len(mock_backend_server.PHOTOS) == 1, "Photo was not uploaded to backend"
         assert len(REPORTS) == 1, "Report was not registered on backend"
         print(f"    Status confirmed: {client.status.value}")
         print(f"    Backend reports count: {len(REPORTS)} (Status: {list(REPORTS.values())[0]['status']})")
@@ -91,7 +102,7 @@ def run_test():
 
         # Step 5: Simulate facilities reviewer clicking "APPROVE"
         print("\n[5] Simulating facilities human reviewer approving the B-C closure...")
-        req = urllib.request.Request("http://127.0.0.1:8000/api/v2/simulate-approve", method="POST")
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/v2/simulate-approve", method="POST")
         with urllib.request.urlopen(req) as resp:
             approval_res = json.loads(resp.read().decode("utf-8"))
         print(f"    Review response: {approval_res}")
@@ -105,7 +116,7 @@ def run_test():
 
         assert client.is_edge_blocked_in_cloud, "Edge B-C should be marked blocked in client"
         assert client.proposed_route == ["B", "E", "F", "D"], f"Expected reroute B->E->F->D, got {client.proposed_route}"
-        assert len(voice.spoken) == 1, f"Expected 1 voice announcement, got {len(voice.spoken)}"
+        assert len(voice.spoken) == 2, f"Expected 2 voice announcements (immediate local + cloud update), got {len(voice.spoken)}"
         print(f"    Client status: {client.status.value}")
         print(f"    New calculated route: {' -> '.join(client.proposed_route)}")
         print(f"    Voice announcement count: {len(voice.spoken)}")
@@ -113,7 +124,7 @@ def run_test():
         # Step 7: Verify subsequent map polls do NOT repeat speech
         print("\n[7] Waiting 3 seconds of additional map polls to verify speech debouncing...")
         time.sleep(3.0)
-        assert len(voice.spoken) == 1, "Speech was improperly repeated!"
+        assert len(voice.spoken) == 2, "Speech was improperly repeated!"
         print("    Speech debounce verified: 0 repeated announcements.")
 
         print("\n" + "=" * 65)
