@@ -1,0 +1,11 @@
+{
+  "api_url": "http://127.0.0.1:8000",
+  "api_prefix": "/api/v2",
+  "camera_id": "camera-b-01",
+  "auth_token": "OPTIONAL_BEARER_TOKEN_PLACEHOLDER",
+  "assigned_node": "B",
+  "assigned_edge": ["B", "C"],
+  "destination_node": "D",
+  "poll_interval_s": 2.5,
+  "http_timeout_s": 5.0
+}

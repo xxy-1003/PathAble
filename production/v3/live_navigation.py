@@ -12,6 +12,7 @@ Demonstrates:
 
 import argparse
 import json
+import os
 from pathlib import Path
 import time
 
@@ -23,6 +24,7 @@ from local_agent import LocalAgent, RouteMap
 from voice import VoiceGuidance
 from manual_route_demo import ManualRouteDemo
 from camera_region_demo import ChairRegionMonitor
+from aws_device_client import AwsDeviceClient, DeviceWorkflowStatus
 
 
 BACKENDS = {"auto": cv2.CAP_ANY, "dshow": cv2.CAP_DSHOW, "msmf": cv2.CAP_MSMF}
@@ -115,11 +117,23 @@ def main() -> None:
                         help="Operator assigns junction B; press B to confirm B-C blocked and propose a route")
     parser.add_argument("--camera-route-demo", action="store_true",
                         help="Fixed-view chair overlap automatically proposes a demo route; not physical blockage verification")
+    parser.add_argument("--aws-workflow", action="store_true",
+                        help="AWS-connected workflow: chair detection submits report to AWS and awaits review before rerouting")
+    parser.add_argument("--api-url", type=str, default=os.getenv("PATHABLE_API_URL", "http://127.0.0.1:8000"),
+                        help="AWS or local API base URL (default: http://127.0.0.1:8000)")
+    parser.add_argument("--api-prefix", type=str, default=os.getenv("PATHABLE_API_PREFIX", "/api/v2"),
+                        help="API path prefix (default: /api/v2)")
+    parser.add_argument("--camera-id", type=str, default=os.getenv("PATHABLE_CAMERA_ID", "camera-b-01"),
+                        help="Camera identifier (default: camera-b-01)")
+    parser.add_argument("--auth-token", type=str, default=os.getenv("PATHABLE_AUTH_TOKEN", None),
+                        help="Bearer access token for AWS API Gateway (default: from PATHABLE_AUTH_TOKEN env)")
     args = parser.parse_args()
-    if args.manual_route_demo and args.camera_route_demo:
-        parser.error("Choose either manual or camera route demo")
-    if (args.manual_route_demo or args.camera_route_demo) and (args.start != "B" or args.dest != "D"):
-        parser.error("Use --start B --dest D with route demos")
+
+    demo_count = sum([bool(args.manual_route_demo), bool(args.camera_route_demo), bool(args.aws_workflow)])
+    if demo_count > 1:
+        parser.error("Choose only one of --manual-route-demo, --camera-route-demo, or --aws-workflow")
+    if (args.manual_route_demo or args.camera_route_demo or args.aws_workflow) and (args.start != "B" or args.dest != "D"):
+        parser.error("Use --start B --dest D with route demos and AWS workflow")
 
     # Check for model file
     if not args.model.is_file():
@@ -142,7 +156,18 @@ def main() -> None:
     # A separate graph prevents manual demo confirmations becoming sensor evidence.
     manual_demo = (ManualRouteDemo(RouteMap.from_file(args.map), voice)
                    if args.manual_route_demo or args.camera_route_demo else None)
-    monitor = ChairRegionMonitor() if args.camera_route_demo else None
+    aws_client = (AwsDeviceClient(
+        api_base_url=args.api_url,
+        api_prefix=args.api_prefix,
+        camera_id=args.camera_id,
+        auth_token=args.auth_token,
+        route_map=RouteMap.from_file(args.map),
+        voice=voice,
+        assigned_node=args.start,
+        assigned_edge=("B", "C"),
+        destination_node=args.dest,
+    ) if args.aws_workflow else None)
+    monitor = ChairRegionMonitor() if (args.camera_route_demo or args.aws_workflow) else None
     monitor_status = None
     trial_dir = None
     print(f"Voice mode: {voice.active_mode}; timing records cover queue dispatch only.")
@@ -167,6 +192,10 @@ def main() -> None:
         trial_dir.mkdir(parents=True)
         print(f"CAMERA REGION DEMO: central blue rectangle represents B-C. Logs: {trial_dir}")
         print("Junction B is operator-assigned. Chair overlap is a demo trigger, not measured corridor clearance.")
+    if aws_client:
+        print(f"AWS WORKFLOW ENABLED: Camera {args.camera_id} at Junction B (Edge B-C)")
+        print(f"Connecting to: {args.api_url}{args.api_prefix}")
+        aws_client.start()
 
     capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
     if not capture.isOpened():
@@ -197,14 +226,29 @@ def main() -> None:
             if monitor:
                 monitor_status = monitor.update(pipeline.last_vision_result, t_now,
                                                 (frame.shape[1], frame.shape[0]))
-                if monitor_status['trigger'] and not manual_demo.confirmed:
-                    manual_demo.propose_from_camera(monitor_status)
-                    cv2.imwrite(str(trial_dir / 'trigger.png'), frame)
-                    print("CAMERA DEMO TRIGGER: " + json.dumps(manual_demo.last_event))
-                with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
-                    log.write(json.dumps(dict(timestamp=t_now, mode='camera_region_demo',
-                        evidence=monitor_status, proposed_route=list(manual_demo.route),
-                        triggered=manual_demo.confirmed)) + '\n')
+                if manual_demo:
+                    if monitor_status['trigger'] and not manual_demo.confirmed:
+                        manual_demo.propose_from_camera(monitor_status)
+                        cv2.imwrite(str(trial_dir / 'trigger.png'), frame)
+                        print("CAMERA DEMO TRIGGER: " + json.dumps(manual_demo.last_event))
+                    with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
+                        log.write(json.dumps(dict(timestamp=t_now, mode='camera_region_demo',
+                            evidence=monitor_status, proposed_route=list(manual_demo.route),
+                            triggered=manual_demo.confirmed)) + '\n')
+                elif aws_client:
+                    if monitor_status['trigger']:
+                        # Encode current frame as JPEG evidence
+                        _, encoded_jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                        rec = aws_client.on_chair_overlap_trigger(monitor_status, encoded_jpg.tobytes())
+                        if rec:
+                            cv2.imwrite(str(trial_dir / f"trigger_{rec.report_id}.png"), frame)
+                            print(f"AWS WORKFLOW TRIGGER: Queued report {rec.report_id} to AWS outbox.")
+                    with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
+                        log.write(json.dumps(dict(timestamp=t_now, mode='aws_workflow',
+                            evidence=monitor_status, status=aws_client.status.value,
+                            cloud_map_version=aws_client.known_map_version,
+                            proposed_route=list(aws_client.proposed_route),
+                            blocked_in_cloud=aws_client.is_edge_blocked_in_cloud)) + '\n')
 
             # Print state changes
             if decision.action != last_action or obs.node is not None:
@@ -243,6 +287,26 @@ def main() -> None:
                     cv2.putText(panel, line, (8, 20 + index * 23),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)
                 hud_frame = np.vstack([hud_frame, panel])
+            elif aws_client:
+                panel = np.zeros((122, hud_frame.shape[1], 3), dtype=np.uint8)
+                playback = voice.get_playback_status()
+                status_val = aws_client.status.value
+                ver_val = f"v{aws_client.known_map_version}" if aws_client.known_map_version else "v1"
+                lines = [
+                    f"AWS WORKFLOW | {aws_client.camera_id} | Edge B-C | Status: {status_val}",
+                    f"Cloud map: {ver_val} | B-C blocked: {aws_client.is_edge_blocked_in_cloud} | Q: exit",
+                    "Proposed route: " + (" -> ".join(aws_client.proposed_route) or "NONE"),
+                    f"Error: {aws_client.last_error[:55]}" if aws_client.last_error
+                    else "Camera detection submits report; edge closes only on human approval.",
+                    f"Voice: {playback['mode']} | {playback['state']} (backend status)",
+                ]
+                for index, line in enumerate(lines):
+                    color = (0, 0, 255) if "UNAVAILABLE" in status_val or aws_client.last_error else (
+                        (0, 255, 0) if aws_client.is_edge_blocked_in_cloud else (0, 255, 255)
+                    )
+                    cv2.putText(panel, line, (8, 20 + index * 23),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+                hud_frame = np.vstack([hud_frame, panel])
             cv2.imshow("PathAble Live Navigation", hud_frame)
             key = cv2.waitKey(1) & 0xFF
             if key in (ord("q"), 27):
@@ -259,6 +323,8 @@ def main() -> None:
                 else:
                     print("No proposed reroute to repeat yet.")
     finally:
+        if aws_client:
+            aws_client.stop()
         capture.release()
         cv2.destroyAllWindows()
         voice.close()
