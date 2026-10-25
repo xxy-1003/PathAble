@@ -7,6 +7,14 @@ camera timeout, active perception, and offline voice guidance.
 
 ## Local navigation and voice verification
 
+For the stationary chair-overlap rerouting demonstration, see
+[camera_region_demo.md](camera_region_demo.md). The opt-in demo uses the larger
+YOLO11s segmentation model, an assigned junction B, and a separate route graph.
+Repeated chair-box overlap proposes B-E-F-D; it does not verify corridor
+clearance or override the camera agent's STOP status. Manual confirmation and
+route-speech replay are also available. Recorded examples and their limits are
+listed in [the 25 October evidence review](evaluation/camera_demo_evidence_2026-10-25.md).
+
 Run from this directory with Python 3.11+:
 
 ```powershell
@@ -14,10 +22,13 @@ python -m unittest -v test_local_agent.py test_local_navigation_voice.py test_vo
 python replay_demo.py
 ```
 
-The offline voice layer (`voice.py`) operates non-blockingly using `pyttsx3` or native Windows
-SAPI with automatic graceful fallback to mock mode in headless environments or systems without
+The offline voice layer (`voice.py`) operates non-blockingly using `pyttsx3`, native Windows
+SAPI, or built-in Windows System.Speech through a hidden PowerShell process.
+It falls back to mock mode in headless environments or systems without
 an active audio output device. It enforces:
 - `STOP_AND_ESCALATE` takes immediate priority, clearing any pending queue.
+- An unchanged STOP condition is announced once; a new reason or recovery followed
+  by another stop rearms it. Backend playback status is distinct from audible proof.
 - `CONTINUE` is normally silent.
 - `STEP_ASIDE`, `TURN_TO_LOOK`, `WAIT_AND_REOBSERVE`, and `REROUTE` speak appropriate instructions
   with debouncing cooldowns to prevent repeat spamming.

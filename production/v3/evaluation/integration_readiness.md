@@ -1,5 +1,19 @@
 # Integration fixes — 24 October 2026
 
+## 25 October follow-up
+
+The integrated fixed-camera demo adds manual floor clicking, a Windows speech
+fallback, unchanged-STOP speech suppression, conservative chair-contact
+rejection, operator-confirmed route changes, route-announcement replay and
+visible backend status. An opt-in camera-region chair-overlap demo proposes a
+separate route after repeated qualifying detections and saves local trial logs.
+Full software validation: 204 tests and 2 subtests passed, with the existing
+HTTP 422 naming deprecation warning. See
+[the recorded demo evidence](camera_demo_evidence_2026-10-25.md) for the reviewed
+inside/outside recordings and the remaining physical/evaluation limits.
+
+The remainder below records the earlier integration baseline.
+
 The integration-fixes branch combines the checked teammate heads:
 `e3f0386` navigation, `463ce76` perception, `3d2df3a` cloud,
 `d7cfd6a` benchmark (already in v3 `71aed18`), and `51c8ee3` evaluation.

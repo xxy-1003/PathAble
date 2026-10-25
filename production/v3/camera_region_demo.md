@@ -3,6 +3,7 @@
 Run from the repository root:
 
 ```powershell
+.\production\v3\download_model.ps1 -Size s
 .\.venv\Scripts\python.exe production\v3\live_navigation.py --camera 1 --backend dshow --model production\v3\models\yolo11s-seg.onnx --voice-mode auto --start B --dest D --camera-route-demo
 ```
 
@@ -33,4 +34,6 @@ image is `trigger.png`. These ignored files do not go to GitHub or AWS. Recorded
 values are demo evidence, not measured route-completion evaluation results.
 
 The empty photo `passage_clear_07.png` was checked offline without a detection
-or trigger. Actual live empty/outside/inside trials remain to be performed.
+or trigger. Live inside/outside cases were subsequently recorded on 25 October
+2026; see [the evidence review](evaluation/camera_demo_evidence_2026-10-25.md).
+These examples do not establish general detection accuracy or walking safety.
