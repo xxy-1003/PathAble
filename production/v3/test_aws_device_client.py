@@ -32,6 +32,18 @@ class MockVoice:
         self.spoken.append(text)
 
 
+def cloud_map(version=1, blocked=False):
+    return {
+        "map_id": "prototype", "version": version,
+        "nodes": {str(i): n for i, n in enumerate("ABCDEF")},
+        "edges": [{"from": a, "to": b, "distance": None,
+                   "distance_source": "unmeasured", "route_weight": 1,
+                   "blocked": blocked and (a, b) == ("B", "C")}
+                  for a, b in [("A", "B"), ("B", "C"), ("C", "D"),
+                               ("B", "E"), ("E", "F"), ("F", "D")]],
+    }
+
+
 def create_test_route_map() -> RouteMap:
     """Returns a 6-node prototype map with edge B-C unblocked."""
     map_data = {
@@ -85,6 +97,7 @@ class AwsDeviceClientTests(unittest.TestCase):
             "total_frames": 10,
             "current": None,
         }
+        self.assertIsNone(self.client.on_chair_overlap_trigger(evidence, b""))
         # Nothing should be in outbox or queue
         self.assertIsNone(self.client._current_report)
         self.assertEqual(self.client.status, DeviceWorkflowStatus.MONITORING)
@@ -129,7 +142,7 @@ class AwsDeviceClientTests(unittest.TestCase):
         mock_http.side_effect = [
             ConnectionError("Cloud endpoint unreachable"),
             (201, {"photo_id": "photo-123", "sha256": "abc"}),
-            (201, {"report_id": orig_id, "status": "PENDING"}),
+            (201, {"report_id": orig_id, "camera_id": "camera-b-01", "photo_id": "photo-123", "status": "PENDING"}),
         ]
 
         # First upload attempt raises
@@ -157,16 +170,8 @@ class AwsDeviceClientTests(unittest.TestCase):
         """Case 4: A pending report awaiting review leaves edge B-C unblocked."""
         # Cloud map version is v1 with B-C NOT blocked
         mock_http.side_effect = [
-            (200, {"version": 1}),
-            (200, {
-                "map_id": "prototype",
-                "version": 1,
-                "edges": [
-                    {"from": "A", "to": "B", "blocked": False},
-                    {"from": "B", "to": "C", "blocked": False},
-                    {"from": "C", "to": "D", "blocked": False},
-                ],
-            }),
+            (200, {"map_id": "prototype", "version": 1}),
+            (200, cloud_map(1, False)),
         ]
 
         # Initial route before review is B -> C -> D
@@ -185,19 +190,8 @@ class AwsDeviceClientTests(unittest.TestCase):
     def test_case_5_approved_map_closure_updates_route(self, mock_http):
         """Case 5: When approved map arrives with B-C blocked, route updates to B->E->F->D."""
         mock_http.side_effect = [
-            (200, {"version": 2}),
-            (200, {
-                "map_id": "prototype",
-                "version": 2,
-                "edges": [
-                    {"from": "A", "to": "B", "blocked": False},
-                    {"from": "B", "to": "C", "blocked": True},  # APPROVED BLOCKED
-                    {"from": "C", "to": "D", "blocked": False},
-                    {"from": "B", "to": "E", "blocked": False},
-                    {"from": "E", "to": "F", "blocked": False},
-                    {"from": "F", "to": "D", "blocked": False},
-                ],
-            }),
+            (200, {"map_id": "prototype", "version": 2}),
+            (200, cloud_map(2, True)),
         ]
 
         changed = self.client.poll_and_synchronize_map()
@@ -214,21 +208,12 @@ class AwsDeviceClientTests(unittest.TestCase):
     def test_case_6_repeated_delivery_of_same_map_version_does_not_repeat_speech(self, mock_http):
         """Case 6: Subsequent polls returning the same map version do not repeat speech."""
         mock_http.side_effect = [
-            (200, {"version": 2}),
-            (200, {
-                "map_id": "prototype",
-                "version": 2,
-                "edges": [
-                    {"from": "B", "to": "C", "blocked": True},
-                    {"from": "B", "to": "E", "blocked": False},
-                    {"from": "E", "to": "F", "blocked": False},
-                    {"from": "F", "to": "D", "blocked": False},
-                ],
-            }),
+            (200, {"map_id": "prototype", "version": 2}),
+            (200, cloud_map(2, True)),
             # Second poll: same version 2
-            (200, {"version": 2}),
+            (200, {"map_id": "prototype", "version": 2}),
             # Third poll: same version 2
-            (200, {"version": 2}),
+            (200, {"map_id": "prototype", "version": 2}),
         ]
 
         self.client.poll_and_synchronize_map()
@@ -244,15 +229,8 @@ class AwsDeviceClientTests(unittest.TestCase):
     def test_case_7_rejected_report_leaves_route_unclosed(self, mock_http):
         """Case 7: If a report is rejected by facilities, edge B-C stays unblocked."""
         mock_http.side_effect = [
-            (200, {"version": 2}),
-            (200, {
-                "map_id": "prototype",
-                "version": 2,
-                "edges": [
-                    {"from": "B", "to": "C", "blocked": False},  # REJECTED: stays unblocked
-                    {"from": "C", "to": "D", "blocked": False},
-                ],
-            }),
+            (200, {"map_id": "prototype", "version": 2}),
+            (200, cloud_map(2, False)),
         ]
 
         self.client.poll_and_synchronize_map()

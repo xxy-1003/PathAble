@@ -127,6 +127,12 @@ def main() -> None:
                         help="Camera identifier (default: camera-b-01)")
     parser.add_argument("--auth-token", type=str, default=os.getenv("PATHABLE_AUTH_TOKEN", None),
                         help="Bearer access token for AWS API Gateway (default: from PATHABLE_AUTH_TOKEN env)")
+    parser.add_argument("--outbox-dir", type=Path, default=None,
+                        help="Durable local report/checkpoint directory; keep separate per project/camera")
+    parser.add_argument("--poll-interval-s", type=float, default=2.5)
+    parser.add_argument("--http-timeout-s", type=float, default=5.0)
+    parser.add_argument("--max-submission-attempts", type=int, default=3,
+                        help="Bounded attempts per queued report; restart after reconciling persistent errors")
     args = parser.parse_args()
 
     demo_count = sum([bool(args.manual_route_demo), bool(args.camera_route_demo), bool(args.aws_workflow)])
@@ -166,6 +172,10 @@ def main() -> None:
         assigned_node=args.start,
         assigned_edge=("B", "C"),
         destination_node=args.dest,
+        outbox_dir=args.outbox_dir,
+        poll_interval_s=args.poll_interval_s,
+        http_timeout_s=args.http_timeout_s,
+        max_submission_attempts=args.max_submission_attempts,
     ) if args.aws_workflow else None)
     monitor = ChairRegionMonitor() if (args.camera_route_demo or args.aws_workflow) else None
     monitor_status = None
@@ -199,6 +209,8 @@ def main() -> None:
 
     capture = cv2.VideoCapture(args.camera, BACKENDS[args.backend])
     if not capture.isOpened():
+        if aws_client:
+            aws_client.stop()
         voice.close()
         parser.error(f"Cannot open camera index {args.camera}")
 
@@ -236,10 +248,21 @@ def main() -> None:
                             evidence=monitor_status, proposed_route=list(manual_demo.route),
                             triggered=manual_demo.confirmed)) + '\n')
                 elif aws_client:
-                    if monitor_status['trigger']:
+                    if not monitor_status['trigger']:
+                        # A new episode is armed by a non-qualifying interval;
+                        # disappearing evidence never reopens the cloud map.
+                        aws_client.on_chair_overlap_trigger(monitor_status, b'')
+                    elif aws_client.needs_evidence:
                         # Encode current frame as JPEG evidence
-                        _, encoded_jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
-                        rec = aws_client.on_chair_overlap_trigger(monitor_status, encoded_jpg.tobytes())
+                        encoded_ok, encoded_jpg = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 85])
+                        rec = None
+                        try:
+                            if not encoded_ok:
+                                raise ValueError('JPEG encoding failed')
+                            rec = aws_client.on_chair_overlap_trigger(monitor_status, encoded_jpg.tobytes())
+                        except (OSError, ValueError):
+                            aws_client.set_status(DeviceWorkflowStatus.CONNECTION_UNAVAILABLE,
+                                                  'Evidence capture/outbox unavailable; reconcile saved state before retry')
                         if rec:
                             cv2.imwrite(str(trial_dir / f"trigger_{rec.report_id}.png"), frame)
                             print(f"AWS WORKFLOW TRIGGER: Queued report {rec.report_id} to AWS outbox.")
@@ -291,7 +314,9 @@ def main() -> None:
                 panel = np.zeros((122, hud_frame.shape[1], 3), dtype=np.uint8)
                 playback = voice.get_playback_status()
                 status_val = aws_client.status.value
-                ver_val = f"v{aws_client.known_map_version}" if aws_client.known_map_version else "v1"
+                ver_val = (f"v{aws_client.last_applied_version}" if aws_client.last_applied_version else "unknown")
+                if not aws_client.map_synchronized:
+                    ver_val += " (unconfirmed/cached)"
                 lines = [
                     f"AWS WORKFLOW | {aws_client.camera_id} | Edge B-C | Status: {status_val}",
                     f"Cloud map: {ver_val} | B-C blocked: {aws_client.is_edge_blocked_in_cloud} | Q: exit",

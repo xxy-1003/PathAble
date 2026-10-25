@@ -7,5 +7,6 @@
   "assigned_edge": ["B", "C"],
   "destination_node": "D",
   "poll_interval_s": 2.5,
-  "http_timeout_s": 5.0
+  "http_timeout_s": 5.0,
+  "max_submission_attempts": 3
 }

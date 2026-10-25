@@ -19,6 +19,7 @@ import uuid
 MAP_STATE = {
     "version": 1,
     "map_id": "prototype",
+    "nodes": {str(i): n for i, n in enumerate("ABCDEF")},
     "edges": [
         {"from": "A", "to": "B", "blocked": False},
         {"from": "B", "to": "C", "blocked": False},
@@ -28,6 +29,8 @@ MAP_STATE = {
         {"from": "F", "to": "D", "blocked": False},
     ],
 }
+for edge in MAP_STATE["edges"]:
+    edge.update(distance=None, distance_source="unmeasured", route_weight=1)
 REPORTS = {}
 PHOTOS = {}
 LOCK = threading.Lock()
@@ -60,15 +63,18 @@ class MockBackendHandler(BaseHTTPRequestHandler):
         elif self.path == "/api/v2/reports":
             report_id = data.get("report_id", str(uuid.uuid4()))
             with LOCK:
-                data["status"] = "PENDING"
+                prior = REPORTS.get(report_id)
+                if prior:
+                    if any(prior.get(k) != v for k, v in data.items()):
+                        self._send_json(409, {"detail": "Report ID already used with a different payload"})
+                    else:
+                        self._send_json(200, prior)
+                    return
+                data.update(status="PENDING", received_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
                 REPORTS[report_id] = data
             print(f"\n[BACKEND] Obstacle report received! report_id={report_id}, camera={data.get('camera_id')}, obstacle={data.get('obstacle_class')}")
             print(f"[BACKEND] Status: PENDING review. Map version remains v{MAP_STATE['version']}.")
-            self._send_json(201, {
-                "report_id": report_id,
-                "status": "PENDING",
-                "received_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-            })
+            self._send_json(201, data)
 
         elif self.path == "/api/v2/simulate-approve":
             with LOCK:
@@ -77,11 +83,18 @@ class MockBackendHandler(BaseHTTPRequestHandler):
                     if sorted([edge["from"], edge["to"]]) == ["B", "C"]:
                         edge["blocked"] = True
                 new_ver = MAP_STATE["version"]
+                for report in REPORTS.values():
+                    if report["status"] == "PENDING":
+                        report["status"] = "APPROVED"
             print(f"\n[BACKEND REVIEWER] *** REPORT APPROVED! ***")
             print(f"[BACKEND REVIEWER] Edge B-C is now BLOCKED. Map bumped to v{new_ver}!")
             self._send_json(200, {"status": "APPROVED", "map_version": new_ver, "edge": "B-C", "blocked": True})
 
         elif self.path == "/api/v2/simulate-reject":
+            with LOCK:
+                for report in REPORTS.values():
+                    if report["status"] == "PENDING":
+                        report["status"] = "REJECTED"
             print(f"\n[BACKEND REVIEWER] Report rejected. Edge B-C remains UNBLOCKED.")
             self._send_json(200, {"status": "REJECTED", "map_version": MAP_STATE["version"]})
 
@@ -89,7 +102,11 @@ class MockBackendHandler(BaseHTTPRequestHandler):
             self._send_json(404, {"detail": "Not found"})
 
     def do_GET(self):
-        if self.path == "/api/v2/map/version":
+        if self.path.startswith("/api/v2/reports/"):
+            with LOCK:
+                report = REPORTS.get(self.path.rsplit("/", 1)[-1])
+                self._send_json(200 if report else 404, report or {"detail": "Report not found"})
+        elif self.path == "/api/v2/map/version":
             with LOCK:
                 ver = MAP_STATE["version"]
             self._send_json(200, {"map_id": "prototype", "version": ver})
