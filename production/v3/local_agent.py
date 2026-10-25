@@ -112,11 +112,17 @@ class LocalAgent:
         self.last_frame_at: float | None = None
         self.last_marker_at: float | None = None
         self.awaiting_new_corridor = False
+        self._last_decision_key = None
 
     def _decision(self, action: str, message: str = "", edge=None) -> Decision:
         decision = Decision(action, message, self.current_route, edge)
-        if self.voice and message:
-            is_stop = action == "STOP_AND_ESCALATE"
+        key = (action, message, self.current_node, tuple(self.current_route), edge)
+        is_stop = action == "STOP_AND_ESCALATE"
+        repeated_stop = is_stop and key == self._last_decision_key
+        # Keep returning STOP on every frame, but announce an unchanged stop once.
+        # A new reason/location/route or leaving and re-entering STOP rearms speech.
+        self._last_decision_key = key
+        if self.voice and message and not repeated_stop:
             is_reroute = action == "REROUTE"
             is_urgent = is_stop or is_reroute
             self.voice.speak(

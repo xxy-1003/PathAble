@@ -111,6 +111,40 @@ class LocalNavigationVoiceTests(unittest.TestCase):
         self.assertEqual(self.agent.current_route, ("B", "E", "F", "D"))
         self.assertEqual(self.voice.get_last_spoken(), dec.message)
 
+    def test_unchanged_stop_is_announced_once_across_many_frames(self):
+        self.agent.observe(obs(-0.2, centre="unknown", distance="unknown"))
+        self.agent.observe(obs(-0.1, centre="unknown", distance="unknown"))
+        self.voice.clear_history()
+        for t in (0.0, 0.1, 2.0, 10.0, 60.0):
+            decision = self.agent.observe(obs(t, centre="unknown", distance="unknown"))
+            self.assertEqual(decision.action, "STOP_AND_ESCALATE")
+        self.assertEqual(len(self.voice.get_history()), 1)
+
+    def test_stop_is_announced_again_after_recovery(self):
+        self.agent.observe(obs(-0.2, centre="unknown", distance="unknown"))
+        self.agent.observe(obs(-0.1, centre="unknown", distance="unknown"))
+        first = self.agent.observe(obs(0.0, centre="unknown", distance="unknown"))
+        self.assertEqual(first.action, "STOP_AND_ESCALATE")
+        recovered = self.agent.observe(obs(0.1))
+        self.assertEqual(recovered.action, "CONTINUE")
+        self.agent.observe(obs(0.2, centre="unknown", distance="unknown"))
+        self.agent.observe(obs(0.3, centre="unknown", distance="unknown"))
+        count_before = len(self.voice.get_history())
+        again = self.agent.observe(obs(0.4, centre="unknown", distance="unknown"))
+        self.assertEqual(again.message, first.message)
+        self.assertEqual(len(self.voice.get_history()), count_before + 1)
+
+    def test_new_stop_reason_is_announced_immediately(self):
+        self.agent.observe(obs(-0.2, centre="unknown", distance="unknown"))
+        self.agent.observe(obs(-0.1, centre="unknown", distance="unknown"))
+        self.voice.clear_history()
+        self.agent.observe(obs(0.0, centre="unknown", distance="unknown"))
+        timeout = self.agent.camera_timeout(2.0)
+        self.assertIn("Camera unavailable", timeout.message)
+        self.assertEqual(len(self.voice.get_history()), 2)
+        self.agent.camera_timeout(2.1)
+        self.assertEqual(len(self.voice.get_history()), 2)
+
     def test_destination_arrival_speaks_arrived(self):
         """Arriving at the destination node must announce arrival."""
         decision = self.agent.observe(obs(0.0, node="D"))
