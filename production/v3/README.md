@@ -1,5 +1,9 @@
 # PathAble v3: prototype integration
 
+For the current competition demo, use the [repository quick start](../../README.md).
+It combines the camera client, human-review dashboard and deployed `/api/v2`
+backend. The sections below also describe earlier prototype modules and checks.
+
 This combines the navigation, perception, cloud workflow, benchmark, and evaluation work.
 It follows the one-floor, six-node scope and implements the offline decision table with
 multi-frame blockage confirmation, Dijkstra routing, low-confidence rechecks,

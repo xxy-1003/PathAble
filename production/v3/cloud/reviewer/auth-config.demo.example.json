@@ -1,0 +1,6 @@
+{
+  "issuer": "https://cognito-idp.ap-southeast-2.amazonaws.com/ap-southeast-2_xbrH1dE6o",
+  "clientId": "6uasthmvrjkbslpj2dt1udi5uh",
+  "loginOrigin": "http://localhost:8003",
+  "apiBase": "https://pqrtq5b8og.execute-api.ap-southeast-2.amazonaws.com/api/v2"
+}

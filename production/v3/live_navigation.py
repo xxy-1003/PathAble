@@ -151,7 +151,7 @@ def main() -> None:
         print("  .\\download_model.ps1")
         print("=" * 70)
     else:
-        print(f"Loaded YOLO11n-seg model: {args.model}")
+        print(f"Loaded segmentation model: {args.model}")
 
     if not args.map.is_file():
         parser.error(f"Map graph not found: {args.map}")

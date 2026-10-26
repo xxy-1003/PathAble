@@ -260,19 +260,21 @@ class AwsDeviceClient:
             sha256_hash = hashlib.sha256(jpeg_frame).hexdigest()
 
             curr_obstacle = evidence.get("current") or {}
+            obstacle_class = curr_obstacle.get("object_class") or evidence.get("object_class") or "chair"
             confidence = curr_obstacle.get("confidence")
             positives, frames = evidence.get("positive_frames"), evidence.get("total_frames")
             if (not isinstance(confidence, (int, float)) or isinstance(confidence, bool) or
                     not math.isfinite(confidence) or not 0 <= confidence <= 1 or
                     type(positives) is not int or type(frames) is not int or
-                    not 1 <= positives <= frames <= 10000 or not jpeg_frame):
+                    not 1 <= positives <= frames <= 10000 or not jpeg_frame or
+                    not isinstance(obstacle_class, str) or not 1 <= len(obstacle_class) <= 80):
                 raise ValueError("Actual detection counts, confidence and image are required")
 
             record = DeviceReportRecord(
                 report_id=report_id,
                 camera_id=self.camera_id,
                 observed_at=timestamp_str,
-                obstacle_class="chair",
+                obstacle_class=obstacle_class,
                 confidence=confidence,
                 overlap_count=positives,
                 frame_count=frames,

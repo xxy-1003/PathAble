@@ -35,15 +35,17 @@ allowlists the corresponding subjects; requesting a reviewer scope does not
 make the camera account a reviewer. No EC2 key, IAM access key or API key is
 used by these application clients.
 
-On the camera tab, choose **Copy camera access token**, then in the local
-PowerShell session that will launch the camera:
+Start the camera from the repository root in a separate PowerShell window:
 
 ```powershell
-$env:PATHABLE_AUTH_TOKEN = Get-Clipboard -Raw
-Set-Clipboard -Value ''
+.\production\v3\run_aws_demo.ps1 -Camera 1 -Python '.\.venv\Scripts\python.exe' -Model '.\production\v3\models\yolo11s-seg.onnx' -Outbox '.test-tmp\competition-demo' -PromptForToken
 ```
 
-Never print or commit this environment variable. Person 1's `AwsDeviceClient`
+After starting the command, choose **Copy camera access token** on the camera
+tab, paste it at the hidden prompt and press Enter. Copying a command after the
+token would replace the clipboard contents. The launcher checks sign-in and
+saved state before starting uploads. Never print or commit the token.
+Person 1's `AwsDeviceClient`
 takes `api_base_url='https://pqrtq5b8og.execute-api.ap-southeast-2.amazonaws.com'`
 and `api_prefix='/api/v2'` separately. Pass the token from the environment as
 `auth_token`; do not duplicate `/api/v2` in both arguments. The same camera/map

@@ -17,3 +17,11 @@ venv/
 # Large Model Binaries (downloaded via download_model.ps1)
 *.onnx
 models/
+
+# Private deployment settings and generated build files
+.env
+.env.*
+!.env.example
+.aws/
+.aws-sam/
+node_modules/

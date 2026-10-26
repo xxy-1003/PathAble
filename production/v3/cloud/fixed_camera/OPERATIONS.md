@@ -1,6 +1,7 @@
 # Deployment inventory, authentication and cleanup
 
-No resources listed here have been created or verified in a real AWS account.
+This inventory began as pre-deployment guidance. The subsequent team demo's
+resource names and recorded AWS checks are in [DEPLOYMENT.md](DEPLOYMENT.md).
 Use [README.md](README.md) for build/deploy commands and the live evidence gate.
 
 ## Resource inventory

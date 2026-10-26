@@ -57,3 +57,43 @@ def test_invalid_region_and_time_are_rejected():
     monitor.update(None, 1., (640, 480))
     with pytest.raises(ValueError):
         monitor.update(result(), 0., (640, 480))
+
+
+def test_table_trigger_keeps_actual_class_in_saved_aws_report(tmp_path):
+    from aws_device_client import AwsDeviceClient
+
+    monitor = ChairRegionMonitor()
+    for i in range(6):
+        evidence = monitor.update(result(name='dining table'), i * .2, (640, 480))
+    assert evidence['trigger'] and evidence['transition'] == 'detected'
+    client = AwsDeviceClient(api_base_url='https://example.invalid', outbox_dir=tmp_path)
+    record = client.on_chair_overlap_trigger(evidence, b'test-frame')
+    assert record.obstacle_class == 'dining table'
+    client._http_request = Mock(return_value=(201, {
+        'report_id': record.report_id, 'camera_id': record.camera_id,
+        'photo_id': record.photo_id, 'status': 'PENDING'}))
+    client._submit_report(record)
+    payload = client._http_request.call_args.args[2]
+    assert payload['obstacle_class'] == 'dining table'
+    assert payload['distance_m'] is None and payload['clearance_m'] is None
+
+
+def test_stable_absence_and_redetection_announce_updates_without_clearance():
+    monitor = ChairRegionMonitor()
+    for i in range(6):
+        evidence = monitor.update(result(), i * .2, (640, 480))
+    voice = Mock()
+    demo = ManualRouteDemo(RouteMap.from_file(Path(__file__).resolve().parents[1] / 'map_graph.json'), voice)
+    demo.propose_from_camera(evidence)
+    assert monitor.update(None, 1.2, (640, 480))['transition'] is None
+    absent = monitor.update(None, 2.3, (640, 480))
+    assert absent['transition'] == 'not_detected'
+    assert demo.announce_camera_update(absent)
+    assert 'does not verify that the path is clear' in voice.speak.call_args.args[0]
+    assert monitor.update(None, 2.4, (640, 480))['transition'] is None
+    for i in range(11):
+        detected = monitor.update(result(), 3. + i * .2, (640, 480))
+        if detected['transition']:
+            assert demo.announce_camera_update(detected)
+    assert 'detected again' in voice.speak.call_args.args[0]
+    assert demo.route == ('B', 'E', 'F', 'D')
