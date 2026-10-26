@@ -1,7 +1,14 @@
-"""Fixed-view chair-overlap demo; never declares free space or physical blockage."""
+"""Fixed-view object-overlap demo; never declares free space or physical blockage."""
 
 from collections import deque
 import math
+
+
+# Obstacle classes the local model currently recognises. People are excluded
+# from this persistent route trigger because a passing person is not a blocked edge.
+MONITORED_CLASSES = frozenset({
+    'bench', 'backpack', 'suitcase', 'chair', 'potted plant', 'dining table',
+})
 
 
 class ChairRegionMonitor:
@@ -14,6 +21,9 @@ class ChairRegionMonitor:
         self.region = tuple(region)
         self.samples = deque()
         self.last_time = None
+        self.state = 'unknown'
+        self.last_object_class = None
+        self.absence_since = None
 
     def pixel_region(self, size):
         width, height = size
@@ -31,22 +41,45 @@ class ChairRegionMonitor:
         best = None
         if result is not None:
             for obstacle in result.obstacles:
-                if obstacle.name != 'chair' or obstacle.confidence < 0.60:
+                if obstacle.name not in MONITORED_CLASSES or obstacle.confidence < 0.60:
                     continue
                 a, b, c, d = obstacle.box
                 overlap = max(0, min(c, x2) - max(a, x1)) * max(0, min(d, y2) - max(b, y1)) / area
                 if overlap >= 0.25 and (best is None or overlap > best['region_overlap']):
-                    best = dict(confidence=obstacle.confidence, region_overlap=overlap,
-                                box=list(obstacle.box))
-        self.samples.append((timestamp, best is not None))
+                    best = dict(
+                        object_class=obstacle.name,
+                        confidence=obstacle.confidence,
+                        region_overlap=overlap,
+                        box=list(obstacle.box),
+                    )
+        self.samples.append((timestamp, best))
         while self.samples and timestamp - self.samples[0][0] > 2.0:
             self.samples.popleft()
-        positives = [t for t, detected in self.samples if detected]
+        positives = [(t, item) for t, item in self.samples if item is not None]
         sustained = (best is not None and len(positives) >= 6
-                     and positives[-1] - positives[0] >= 1.0
+                     and positives[-1][0] - positives[0][0] >= 1.0
                      and len(positives) / len(self.samples) >= 0.80)
-        return dict(trigger=bool(sustained), positive_frames=len(positives),
+        transition = None
+        if sustained:
+            object_class = best['object_class']
+            self.absence_since = None
+            if self.state != 'detected' or self.last_object_class != object_class:
+                transition = 'detected'
+                self.state = 'detected'
+                self.last_object_class = object_class
+        elif best is None:
+            if self.absence_since is None:
+                self.absence_since = timestamp
+            if (self.state == 'detected' and timestamp - self.absence_since >= 1.0):
+                transition = 'not_detected'
+                self.state = 'not_detected'
+
+        return dict(trigger=bool(sustained), transition=transition,
+                    state=self.state,
+                    object_class=(best['object_class'] if best else self.last_object_class),
+                    positive_frames=len(positives),
                     total_frames=len(self.samples), current=best,
                     region_normalised=list(self.region),
-                    rule='chair score >=0.60; bbox covers >=25% region; >=6 positives spanning >=1s, >=80% over last 2s',
+                    rule='recognised non-person obstacle score >=0.60; bbox covers >=25% region; '
+                         '>=6 positives spanning >=1s, >=80% over last 2s',
                     physical_blockage_verified=False)

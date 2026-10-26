@@ -1,0 +1,1439 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PathAble Fixed Camera API",
+    "version": "2.1.0",
+    "description": "Fixed-camera reports at B / B-C. See CONTRACT.md for endpoint scopes, identity allowlists, retry semantics and evidence boundaries. AWS deployment unverified."
+  },
+  "paths": {
+    "/api/v2/uploads/presign": {
+      "post": {
+        "summary": "Presign Upload",
+        "operationId": "presign_upload_api_v2_uploads_presign_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PresignInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PresignResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera"
+        ]
+      }
+    },
+    "/api/v2/health": {
+      "get": {
+        "summary": "Health",
+        "operationId": "health_api_v2_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera",
+          "pathable/reviewer",
+          "pathable/map"
+        ]
+      }
+    },
+    "/api/v2/photos": {
+      "post": {
+        "summary": "Upload Photo",
+        "operationId": "upload_photo_api_v2_photos_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhotoUpload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoCreated"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera"
+        ]
+      }
+    },
+    "/api/v2/reports": {
+      "post": {
+        "summary": "Submit Report",
+        "operationId": "submit_report_api_v2_reports_post",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/HumanReportInput"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ReportInput"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera"
+        ]
+      },
+      "get": {
+        "summary": "List Reports",
+        "operationId": "list_reports_api_v2_reports_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PENDING",
+                    "APPROVED",
+                    "REJECTED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/tickets": {
+      "get": {
+        "summary": "List Reports",
+        "operationId": "list_reports_api_v2_tickets_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "PENDING",
+                    "APPROVED",
+                    "REJECTED"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/reports/{report_id}": {
+      "get": {
+        "summary": "Get Report",
+        "operationId": "get_report_api_v2_reports__report_id__get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/camera",
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/tickets/{ticket_id}": {
+      "get": {
+        "summary": "Get Ticket",
+        "operationId": "get_ticket_api_v2_tickets__ticket_id__get",
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/reports/{report_id}/photo": {
+      "get": {
+        "summary": "Get Photo Url",
+        "operationId": "get_photo_url_api_v2_reports__report_id__photo_get",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoLink"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/map/version": {
+      "get": {
+        "summary": "Map Version",
+        "operationId": "map_version_api_v2_map_version_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MapVersion"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/map",
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/map": {
+      "get": {
+        "summary": "Get Map",
+        "operationId": "get_map_api_v2_map_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedMap"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/map",
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/reports/{report_id}/review": {
+      "post": {
+        "summary": "Review Report",
+        "operationId": "review_report_api_v2_reports__report_id__review_post",
+        "parameters": [
+          {
+            "name": "report_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Report Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    },
+    "/api/v2/tickets/{ticket_id}/review": {
+      "post": {
+        "summary": "Review Ticket",
+        "operationId": "review_ticket_api_v2_tickets__ticket_id__review_post",
+        "parameters": [
+          {
+            "name": "ticket_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Ticket Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "x-required-scopes-any-of": [
+          "pathable/reviewer"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "DetectionEvidence": {
+        "properties": {
+          "obstacle_class": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Obstacle Class"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "overlap_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Overlap Count"
+          },
+          "frame_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Frame Count"
+          },
+          "evidence_status": {
+            "type": "string",
+            "const": "client_reported",
+            "title": "Evidence Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "obstacle_class",
+          "confidence",
+          "overlap_count",
+          "frame_count",
+          "evidence_status"
+        ],
+        "title": "DetectionEvidence"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "healthy",
+            "title": "Status"
+          },
+          "storage": {
+            "type": "string",
+            "title": "Storage"
+          },
+          "map_version": {
+            "type": "integer",
+            "title": "Map Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "storage",
+          "map_version"
+        ],
+        "title": "Health"
+      },
+      "HumanReportInput": {
+        "properties": {
+          "schema_id": {
+            "type": "string",
+            "const": "pathable.human-review.report.v1",
+            "title": "Schema Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "client_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "edge_key": {
+            "type": "string",
+            "const": "B-C",
+            "title": "Edge Key"
+          },
+          "junction": {
+            "type": "string",
+            "const": "B",
+            "title": "Junction"
+          },
+          "destination": {
+            "type": "string",
+            "const": "D",
+            "title": "Destination"
+          },
+          "detection_evidence": {
+            "$ref": "#/components/schemas/DetectionEvidence"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageReference"
+          },
+          "distance_m": {
+            "type": "null",
+            "title": "Distance M"
+          },
+          "clearance_m": {
+            "type": "null",
+            "title": "Clearance M"
+          },
+          "measurement_source": {
+            "type": "null",
+            "title": "Measurement Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_id",
+          "event_id",
+          "client_id",
+          "timestamp",
+          "edge_key",
+          "junction",
+          "destination",
+          "detection_evidence",
+          "image",
+          "distance_m",
+          "clearance_m",
+          "measurement_source"
+        ],
+        "title": "HumanReportInput"
+      },
+      "ImageReference": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "sha256"
+        ],
+        "title": "ImageReference"
+      },
+      "MapEdge": {
+        "properties": {
+          "from": {
+            "type": "string",
+            "title": "From"
+          },
+          "to": {
+            "type": "string",
+            "title": "To"
+          },
+          "distance": {
+            "type": "null",
+            "title": "Distance"
+          },
+          "distance_source": {
+            "type": "string",
+            "const": "unmeasured",
+            "title": "Distance Source"
+          },
+          "route_weight": {
+            "type": "integer",
+            "title": "Route Weight"
+          },
+          "blocked": {
+            "type": "boolean",
+            "title": "Blocked"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "from",
+          "to",
+          "distance",
+          "distance_source",
+          "route_weight",
+          "blocked"
+        ],
+        "title": "MapEdge"
+      },
+      "MapVersion": {
+        "properties": {
+          "map_id": {
+            "type": "string",
+            "const": "prototype",
+            "title": "Map Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "map_id",
+          "version"
+        ],
+        "title": "MapVersion"
+      },
+      "PhotoCreated": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "sha256": {
+            "type": "string",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "sha256"
+        ],
+        "title": "PhotoCreated"
+      },
+      "PhotoLink": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "url",
+          "expires_in"
+        ],
+        "title": "PhotoLink"
+      },
+      "PhotoUpload": {
+        "properties": {
+          "camera_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Camera Id"
+          },
+          "jpeg_base64": {
+            "type": "string",
+            "maxLength": 699052,
+            "minLength": 1,
+            "title": "Jpeg Base64"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "camera_id",
+          "jpeg_base64"
+        ],
+        "title": "PhotoUpload"
+      },
+      "PresignInput": {
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Client Id"
+          },
+          "content_type": {
+            "type": "string",
+            "const": "image/jpeg",
+            "title": "Content Type"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "maximum": 524288.0,
+            "minimum": 1.0,
+            "title": "Size Bytes"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "client_id",
+          "content_type",
+          "size_bytes",
+          "sha256"
+        ],
+        "title": "PresignInput"
+      },
+      "PresignResult": {
+        "properties": {
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "method": {
+            "type": "string",
+            "const": "PUT",
+            "title": "Method"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "headers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Headers"
+          },
+          "expires_in": {
+            "type": "integer",
+            "const": 300,
+            "title": "Expires In"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "photo_id",
+          "method",
+          "url",
+          "headers",
+          "expires_in"
+        ],
+        "title": "PresignResult"
+      },
+      "ReportInput": {
+        "properties": {
+          "report_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Report Id"
+          },
+          "camera_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Camera Id"
+          },
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "obstacle_class": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Obstacle Class"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "overlap_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Overlap Count"
+          },
+          "frame_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Frame Count"
+          },
+          "distance_m": {
+            "type": "null",
+            "title": "Distance M"
+          },
+          "clearance_m": {
+            "type": "null",
+            "title": "Clearance M"
+          },
+          "measurement_source": {
+            "type": "null",
+            "title": "Measurement Source"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "report_id",
+          "camera_id",
+          "photo_id",
+          "observed_at",
+          "obstacle_class",
+          "confidence",
+          "overlap_count",
+          "frame_count"
+        ],
+        "title": "ReportInput"
+      },
+      "ReportPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ReportRecord"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "ReportPage"
+      },
+      "ReportRecord": {
+        "properties": {
+          "report_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Report Id"
+          },
+          "camera_id": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Camera Id"
+          },
+          "photo_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Photo Id"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "obstacle_class": {
+            "type": "string",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Obstacle Class"
+          },
+          "confidence": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence"
+          },
+          "overlap_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Overlap Count"
+          },
+          "frame_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Frame Count"
+          },
+          "distance_m": {
+            "type": "null",
+            "title": "Distance M"
+          },
+          "clearance_m": {
+            "type": "null",
+            "title": "Clearance M"
+          },
+          "measurement_source": {
+            "type": "null",
+            "title": "Measurement Source"
+          },
+          "schema_id": {
+            "type": "string",
+            "title": "Schema Id"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Event Id"
+          },
+          "client_id": {
+            "type": "string",
+            "title": "Client Id"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "junction": {
+            "type": "string",
+            "const": "B",
+            "title": "Junction"
+          },
+          "destination": {
+            "type": "string",
+            "const": "D",
+            "title": "Destination"
+          },
+          "detection_evidence": {
+            "$ref": "#/components/schemas/DetectionEvidence"
+          },
+          "image": {
+            "$ref": "#/components/schemas/ImageReference"
+          },
+          "ticket_id": {
+            "type": "string",
+            "title": "Ticket Id"
+          },
+          "payload_sha256": {
+            "type": "string",
+            "title": "Payload Sha256"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Received At"
+          },
+          "node": {
+            "type": "string",
+            "const": "B",
+            "title": "Node"
+          },
+          "edge_key": {
+            "type": "string",
+            "const": "B-C",
+            "title": "Edge Key"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "APPROVED",
+              "REJECTED"
+            ],
+            "title": "Status"
+          },
+          "expected_map_version": {
+            "type": "integer",
+            "title": "Expected Map Version"
+          },
+          "review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewRecord"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "report_id",
+          "camera_id",
+          "photo_id",
+          "observed_at",
+          "obstacle_class",
+          "confidence",
+          "overlap_count",
+          "frame_count",
+          "schema_id",
+          "event_id",
+          "client_id",
+          "timestamp",
+          "junction",
+          "destination",
+          "detection_evidence",
+          "image",
+          "ticket_id",
+          "payload_sha256",
+          "received_at",
+          "node",
+          "edge_key",
+          "status",
+          "expected_map_version",
+          "review"
+        ],
+        "title": "ReportRecord"
+      },
+      "ReviewInput": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Action"
+          },
+          "expected_map_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Map Version"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Notes",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "expected_map_version"
+        ],
+        "title": "ReviewInput"
+      },
+      "ReviewRecord": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "APPROVE",
+              "REJECT"
+            ],
+            "title": "Action"
+          },
+          "expected_map_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Expected Map Version"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Notes",
+            "default": ""
+          },
+          "reviewer_id": {
+            "type": "string",
+            "title": "Reviewer Id"
+          },
+          "reviewed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Reviewed At"
+          },
+          "map_version": {
+            "type": "integer",
+            "title": "Map Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "action",
+          "expected_map_version",
+          "reviewer_id",
+          "reviewed_at",
+          "map_version"
+        ],
+        "title": "ReviewRecord"
+      },
+      "ReviewResult": {
+        "properties": {
+          "report": {
+            "$ref": "#/components/schemas/ReportRecord"
+          },
+          "map_version": {
+            "type": "integer",
+            "title": "Map Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "report",
+          "map_version"
+        ],
+        "title": "ReviewResult"
+      },
+      "SharedMap": {
+        "properties": {
+          "map_id": {
+            "type": "string",
+            "const": "prototype",
+            "title": "Map Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "nodes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/MapEdge"
+            },
+            "type": "array",
+            "title": "Edges"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "map_id",
+          "version",
+          "nodes",
+          "edges"
+        ],
+        "title": "SharedMap"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "BearerAuth": []
+    }
+  ]
+}

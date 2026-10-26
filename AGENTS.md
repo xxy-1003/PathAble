@@ -1,5 +1,21 @@
 # PathAble — Agent Rules & Contribution Guide
 
+## Current competition demo phase
+
+The current team assignment supersedes the historical role table below:
+Person 1 owns the camera client and laptop map synchronisation; Person 2 owns
+backend APIs, schemas, AWS storage and deployment; Person 3 owns the reviewer
+dashboard. Integration work targets `codex/pathable-v3`; keep `main` unchanged
+until team review.
+
+The demo uses a configured stationary camera at B / B–C and an explicitly supplied
+YOLO11s segmentation model. Camera report/photo → AWS → human approval → shared
+map → laptop route proposal/speech is the current scope. Bedrock, COOL and marker
+localisation are excluded from this phase; preserve their existing modules.
+Unknown distance and clearance remain unknown. Historical graph distances below
+are prototype values, not surveyed measurements or evidence of safe walking.
+Use the repository README and SUBMISSION.md for the current combined demo.
+
 > [!CAUTION]
 > Spoken navigation instructions produced by this system are **NOT** certified safe
 > for live physical deployment. Field testing with safety spotters and full sensor

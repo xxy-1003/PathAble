@@ -1,5 +1,10 @@
 # PathAble cloud workflow
 
+For the current fixed-camera report → human approval → shared-map phase, use
+[the separate Person 2 backend](fixed_camera/README.md) and its
+[shared API contract](fixed_camera/CONTRACT.md). The legacy service below is
+preserved; its routes and infrastructure are not the deployment for that phase.
+
 The service supports event intake, map holds, and facilities review. AWS
 provisioning and physical trial performance remain unverified.
 
