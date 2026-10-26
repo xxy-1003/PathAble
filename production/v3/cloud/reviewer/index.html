@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https: http://localhost:* http://127.0.0.1:* data:; connect-src 'self' https: http://localhost:* http://127.0.0.1:*; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>PathAble · Human review</title>
+  <link rel="stylesheet" href="reviewer.css">
+  <script type="module" src="dashboard.mjs"></script>
+</head>
+<body>
+  <header><div><p class="eyebrow">PATHABLE / HUMAN REVIEW</p><h1>Review the evidence.<br>Keep the map accountable.</h1></div><span id="mode-badge" class="badge">FIXTURE MODE · NOT AWS</span></header>
+  <main>
+    <p id="mode-note" class="mode-note">Synthetic contract fixtures. This page is not connected to AWS.</p>
+    <section class="connection" aria-label="Application sign-in">
+      <div class="actions"><button id="reviewer-login" type="button">Reviewer sign-in</button><button id="camera-login" type="button" class="secondary">Camera / laptop sign-in</button><button id="forget-login" type="button" class="secondary" hidden>Clear local sign-in</button></div>
+      <p id="auth-status" class="muted" role="status">Application sign-in is loading…</p>
+      <div id="camera-token-tools" hidden><button id="copy-camera-token" type="button" class="secondary">Copy camera access token</button><p class="muted">Use this only on the camera laptop. In PowerShell: <code>$env:PATHABLE_AUTH_TOKEN = Get-Clipboard</code>. Then clear the clipboard. Never paste the token into chat or a source file. This is not a reviewer token.</p></div>
+    </section>
+    <details class="connection" open>
+      <summary>Connection settings</summary>
+      <form id="connection-form">
+        <label>Data source<select id="mode"><option value="fixture">Fixture practice · synthetic</option><option value="api">API connection · real data</option></select></label>
+        <label>API address<input id="api-base" type="url" placeholder="https://your-api.example/api/v2" autocomplete="off" spellcheck="false"></label>
+        <label>Reviewer access token<input id="token" type="password" autocomplete="off" placeholder="Kept in this page’s memory only"></label>
+        <button type="submit" id="connect">Connect / reset</button>
+      </form>
+      <p class="muted">Reviewer sign-in supplies credentials automatically for the configured API. Manual token entry is an advanced option. The API verifies identity; no AWS keys are used here. Tokens stay in page memory; only the temporary sign-in transaction uses session storage.</p>
+    </details>
+    <div id="error" role="alert" hidden></div>
+    <p id="notice" role="status" aria-live="polite">Loading fixture practice…</p>
+    <div class="workspace">
+      <section class="panel inbox" aria-labelledby="inbox-heading">
+        <div class="section-head"><h2 id="inbox-heading">Reports</h2><button id="refresh" class="secondary">Refresh</button></div>
+        <label>Review status<select id="filter"><option value="PENDING">Awaiting human review</option><option value="APPROVED">Approved closures</option><option value="REJECTED">Rejected reports</option><option value="">All reports</option></select></label>
+        <p class="muted" id="list-count"></p>
+        <div id="tickets" aria-label="Report list"></div>
+        <button id="more" class="secondary" hidden>Load more reports</button>
+        <div id="fixture-tools"><h3>Fixture controls</h3><label class="check"><input id="fail" type="checkbox"> Simulate connection failure</label><p class="muted">Use Connect / reset for a fresh approval or rejection case.</p></div>
+      </section>
+      <section class="panel evidence" aria-labelledby="detail-heading">
+        <div class="section-head"><h2 id="detail-heading">Evidence inspection</h2><span id="ticket-status" class="badge">No report selected</span></div>
+        <p id="empty-detail" class="muted">Select a report to inspect its image and decide.</p>
+        <div id="detail" hidden>
+          <dl id="facts"></dl>
+          <figure><img id="photo" alt="" referrerpolicy="no-referrer" hidden><figcaption id="photo-status">Evidence has not been loaded.</figcaption></figure>
+          <button id="photo-retry" class="secondary">Reload evidence image</button>
+          <p class="boundary">Location B and edge B–C are assigned by configuration. The detection is a client-reported camera-region overlap heuristic. It does not measure distance or corridor clearance.</p>
+          <label>Optional reviewer notes<textarea id="notes" maxlength="2000" rows="3" placeholder="What did you observe in the evidence?"></textarea></label>
+          <p class="muted" id="decision-context"></p>
+          <div class="actions"><button id="approve">Approve closure</button><button id="reject" class="secondary">Reject report</button><button id="retry-decision" class="secondary" hidden>Retry same decision</button></div>
+          <p id="review-record" class="muted"></p>
+        </div>
+      </section>
+      <section class="panel shared-map" aria-labelledby="map-heading">
+        <div class="section-head"><h2 id="map-heading">Shared map</h2><span id="map-version" class="badge">Not loaded</span></div>
+        <p id="map-status">Map state is unknown.</p>
+        <div id="map-edges"></div>
+        <p class="boundary">An edge without an approved closure is not verified clear. Laptop rerouting and audible speech require separate end-to-end verification.</p>
+        <p id="service" class="muted"></p>
+      </section>
+    </div>
+  </main>
+  <footer>Human approval records a reported obstruction. This prototype does not certify safe walking guidance.</footer>
+</body>
+</html>

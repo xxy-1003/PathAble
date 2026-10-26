@@ -1,0 +1,46 @@
+:root { color-scheme: light; --ink:#182b31; --muted:#52686f; --line:#d5e0df; --teal:#11645a; --paper:#f4f6f2; }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.55 system-ui,sans-serif; }
+header,main,footer { max-width:1520px; margin:auto; padding:28px 36px; }
+header { display:flex; justify-content:space-between; gap:24px; align-items:center; border-bottom:1px solid var(--line); }
+h1 { margin:8px 0; font-size:clamp(25px,3vw,42px); line-height:1.15; letter-spacing:-1.3px; font-weight:650; }
+h2 { font-size:19px; margin:0; } h3 { font-size:15px; }
+.eyebrow { letter-spacing:2px; font-size:12px; font-weight:750; color:var(--teal); }
+.badge { display:inline-block; padding:5px 10px; background:#e1ece8; color:#18483d; border:1px solid #c5dcd2; border-radius:4px; font-size:12px; font-weight:750; white-space:normal; }
+.badge[data-status="PENDING"] { background:#fff1cc; color:#6f4e00; border-color:#e8cc83; }
+.badge[data-status="REJECTED"] { background:#ecefee; color:#43554f; }
+.mode-note { border-left:4px solid #c18516; padding:12px 16px; background:#fff3d7; margin-top:0; }
+.connection { background:white; border:1px solid var(--line); padding:16px 20px; border-radius:7px; margin-bottom:20px; }
+summary { cursor:pointer; font-weight:650; }
+form { display:grid; grid-template-columns:1fr 1.5fr 1.3fr auto; gap:14px; align-items:end; margin-top:15px; }
+label { display:block; font-size:13px; font-weight:650; }
+input,select,textarea { width:100%; border:1px solid #9bacad; background:white; color:var(--ink); border-radius:4px; padding:10px; font:inherit; margin-top:5px; min-height:43px; }
+textarea { resize:vertical; }
+button { cursor:pointer; border:1px solid var(--teal); background:var(--teal); color:white; padding:10px 15px; border-radius:4px; font:inherit; font-size:14px; font-weight:650; min-height:43px; }
+button.secondary { color:var(--ink); background:white; border-color:#9bacad; }
+button:disabled { opacity:.5; cursor:not-allowed; }
+:focus-visible { outline:3px solid #a35d04; outline-offset:3px; }
+.muted { color:var(--muted); font-size:13px; overflow-wrap:anywhere; }
+#notice { min-height:25px; font-size:14px; }
+#error { background:#fce9e6; border:1px solid #c17b70; color:#742a21; padding:13px; border-radius:4px; }
+.workspace { display:grid; grid-template-columns:minmax(230px,.8fr) minmax(360px,1.65fr) minmax(240px,.9fr); gap:20px; align-items:start; }
+.panel { min-width:0; background:white; border:1px solid var(--line); border-radius:7px; padding:20px; }
+.section-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:20px; }
+.ticket { display:block; width:100%; text-align:left; background:white; color:var(--ink); border-color:var(--line); margin:10px 0; overflow-wrap:anywhere; }
+.ticket[aria-pressed="true"] { border:2px solid var(--teal); background:#eef7f1; }
+.ticket span { display:block; font-size:12px; font-weight:400; margin-top:5px; }
+dl { display:grid; grid-template-columns:125px 1fr; gap:8px 12px; font-size:13px; }
+dt { color:var(--muted); } dd { margin:0; overflow-wrap:anywhere; }
+figure { margin:22px 0 12px; padding:14px; background:#f1f4f1; border:1px solid var(--line); text-align:center; }
+img { width:100%; max-height:370px; object-fit:contain; display:block; }
+figcaption { margin-top:10px; color:var(--muted); font-size:13px; }
+.boundary { padding:12px; background:#f1f5f4; border-left:3px solid #98b1a6; font-size:13px; }
+.actions { display:flex; flex-wrap:wrap; gap:10px; }
+.edge { display:flex; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid var(--line); font-size:13px; }
+.edge strong { white-space:nowrap; }.edge span { text-align:right; }
+#fixture-tools { border-top:1px solid var(--line); margin-top:24px; padding-top:8px; }
+.check { display:flex; align-items:center; gap:8px; }.check input { width:18px; min-height:18px; margin:0; }
+footer { font-size:12px; color:var(--muted); padding-top:0; }
+[hidden] { display:none !important; }
+@media(max-width:1150px) { .workspace { grid-template-columns:1fr 2fr; }.shared-map { grid-column:1/-1; } form { grid-template-columns:1fr 1fr; } }
+@media(max-width:700px) { header,main,footer { padding:20px 16px; } header { align-items:start; flex-direction:column; }.workspace,form { grid-template-columns:1fr; }.shared-map { grid-column:auto; } dl { grid-template-columns:100px 1fr; } }
