@@ -20,12 +20,13 @@ localisation are outside this demo; older modules remain in the repository.
 
 ## Version to use
 
-Use the combined `codex/pathable-v3` integration branch for this submission.
-The `v1.0-competition-demo` tag identifies the frozen competition snapshot once
-published. `main` remains the older stable branch pending team review.
+Use `main` for the combined competition demo. The `v1.0-competition-demo` tag
+identifies the frozen, tested source snapshot; `codex/pathable-v3` remains the
+integration branch for subsequent work. Release promotion updates these
+instructions without changing the tagged application code.
 
 ```powershell
-git clone --branch codex/pathable-v3 https://github.com/xxy-1003/PathAble.git
+git clone https://github.com/xxy-1003/PathAble.git
 cd PathAble
 ```
 
