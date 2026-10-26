@@ -86,7 +86,10 @@ class VoiceGuidance:
             speaker = win32com.client.Dispatch("SAPI.SpVoice")
             # Test if audio rendering works
             speaker.Rate = int((self.speech_rate - 150) / 25)
-            self._sapi_speaker = speaker
+            # Probe availability here; COM objects must be created on the thread
+            # that uses them. The speech worker creates its own speaker below.
+            del speaker
+            self._sapi_speaker = True
             self.active_mode = "sapi"
             logger.info("Voice initialized using native SAPI.SpVoice")
             return
@@ -130,8 +133,20 @@ class VoiceGuidance:
                     self._tts_engine.say(text)
                     self._tts_engine.runAndWait()
                 elif self.active_mode == "sapi" and self._sapi_speaker:
-                    # 0 = synchronous within the background worker thread
-                    self._sapi_speaker.Speak(text, 0)
+                    import pythoncom
+                    import win32com.client
+
+                    pythoncom.CoInitialize()
+                    try:
+                        speaker = win32com.client.Dispatch("SAPI.SpVoice")
+                        try:
+                            speaker.Rate = int((self.speech_rate - 150) / 25)
+                            # Synchronous on this worker's COM apartment.
+                            speaker.Speak(text, 0)
+                        finally:
+                            del speaker
+                    finally:
+                        pythoncom.CoUninitialize()
                 elif self.active_mode == "windows_speech" and self._powershell:
                     # Text goes through stdin, never into executable PowerShell code.
                     command = (
