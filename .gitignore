@@ -1,0 +1,27 @@
+# Python & Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+
+# Virtual Environments
+.venv/
+env/
+venv/
+.uv-cache/
+
+# Testing & Caches
+.pytest_cache/
+.test-tmp/
+
+# Large Model Binaries (downloaded via download_model.ps1)
+*.onnx
+models/
+
+# Private deployment settings and generated build files
+.env
+.env.*
+!.env.example
+.aws/
+.aws-sam/
+node_modules/

@@ -1,0 +1,4 @@
+measured_data/
+reports/
+*.generated.md
+.test-tmp/

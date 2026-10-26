@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "evt-b-c-uncertain-001",
+  "client_id": "laptop-demo-unit-01",
+  "timestamp": "2026-10-24T03:05:00Z",
+  "edge": {
+    "from_node": "B",
+    "to_node": "C"
+  },
+  "current_node": "B",
+  "destination_node": "D",
+  "local_reroute": ["B", "E", "F", "D"],
+  "observations": {
+    "confidence": 0.75,
+    "obstacle_classes": ["chair"],
+    "distance_band": "near",
+    "ground_contact_distance_m": 1.4,
+    "zone_occupancy": {
+      "left": "clear",
+      "centre": "occupied",
+      "right": "occupied"
+    },
+    "moving": false,
+    "consecutive_blocked_frames": 7
+  },
+  "keyframes": [
+    {
+      "frame_id": "kf_unc_001",
+      "filename": "chair_static_1.jpg",
+      "s3_key": "events/evt-b-c-uncertain-001/chair_static_1.jpg",
+      "sha256": "5b8d2ed414474e4033ac29ccb8653d9b048039e1a90f1d3e8c0e27161b2dff02",
+      "mime_type": "image/jpeg",
+      "people_blurred": true
+    }
+  ],
+  "privacy": {
+    "people_blurred_on_device": true,
+    "face_recognition_used": false,
+    "s3_lifecycle_days": 7
+  },
+  "map_version": 1
+}

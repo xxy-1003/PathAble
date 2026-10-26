@@ -1,0 +1,8 @@
+{
+  "schema_version": "1.0.0",
+  "client_id": "laptop-demo-unit-01",
+  "timestamp": "not-a-timestamp",
+  "edge": {
+    "from_node": "B"
+  }
+}

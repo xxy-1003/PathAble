@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 12 9" width="100%" height="100%" preserveAspectRatio="xMidYMid meet">
+  <title>PathAble 9 by 6 inner-corner calibration checkerboard</title>
+  <rect x="-1" y="-1" width="12" height="9" fill="white"/>
+  <defs>
+    <pattern id="checker" width="2" height="2" patternUnits="userSpaceOnUse">
+      <rect width="2" height="2" fill="white"/>
+      <rect width="1" height="1" fill="black"/>
+      <rect x="1" y="1" width="1" height="1" fill="black"/>
+    </pattern>
+  </defs>
+  <rect width="10" height="7" fill="url(#checker)"/>
+</svg>

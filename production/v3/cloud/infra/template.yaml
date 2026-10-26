@@ -1,0 +1,209 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  PathAble Cloud Slow-Loop Serverless & Graviton Architecture
+  OpenCV AI Competition 2026 (Proposal Sections 6, 9, 10, 11)
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: python3.11
+    Tracing: Active
+    Environment:
+      Variables:
+        EVENTS_TABLE: !Ref EventsTable
+        MAP_TABLE: !Ref SharedMapTable
+        TICKETS_TABLE: !Ref TicketsTable
+        KEYFRAMES_BUCKET: !Ref KeyframesBucket
+        FACILITIES_TOPIC_ARN: !Ref FacilitiesTopic
+        BEDROCK_MODEL_ID: "amazon.nova-lite-v1:0"
+
+Resources:
+  # -------------------------------------------------------------
+  # 1. S3 Storage for Blurred Keyframes (7-day lifecycle)
+  # -------------------------------------------------------------
+  KeyframesBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "pathable-keyframes-${AWS::AccountId}-${AWS::Region}"
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireKeyframes7Days
+            Status: Enabled
+            ExpirationInDays: 7
+
+  # -------------------------------------------------------------
+  # 2. DynamoDB Tables (Map, Events, Tickets)
+  # -------------------------------------------------------------
+  EventsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "pathable-blocked-events"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: event_id
+          AttributeType: S
+        - AttributeName: edge_key
+          AttributeType: S
+        - AttributeName: timestamp
+          AttributeType: S
+      KeySchema:
+        - AttributeName: event_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EdgeHistoryIndex
+          KeySchema:
+            - AttributeName: edge_key
+              KeyType: HASH
+            - AttributeName: timestamp
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+
+  SharedMapTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "pathable-shared-map"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: map_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: map_id
+          KeyType: HASH
+
+  TicketsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: "pathable-facilities-tickets"
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: ticket_id
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: ticket_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: StatusIndex
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+
+  # -------------------------------------------------------------
+  # 3. Amazon SNS Topics
+  # -------------------------------------------------------------
+  FacilitiesTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: "pathable-facilities-approvals"
+      DisplayName: "PathAble Facilities Route Approval"
+
+  # -------------------------------------------------------------
+  # 4. API Gateway HTTP API
+  # -------------------------------------------------------------
+  PathAbleApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: "pathable-slow-loop-api"
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - "*"
+
+  # -------------------------------------------------------------
+  # 5. Lambda Functions
+  # -------------------------------------------------------------
+  IntakeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../
+      Handler: production.v3.cloud.api.app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EventsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SharedMapTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TicketsTable
+        - S3CrudPolicy:
+            BucketName: !Ref KeyframesBucket
+        - SNSPublishMessagePolicy:
+            TopicName: !GetAtt FacilitiesTopic.TopicName
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: "arn:aws:bedrock:*::foundation-model/amazon.nova-lite-v1:0"
+      Events:
+        EventsRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/events
+            Method: POST
+        MapRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/map
+            Method: GET
+        MapVersionRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/map/version
+            Method: GET
+        TicketsRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/tickets
+            Method: GET
+        TicketReviewRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/tickets/{ticket_id}/review
+            Method: POST
+        TracesRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/traces
+            Method: GET
+        HealthRoute:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref PathAbleApi
+            Path: /api/v1/health
+            Method: GET
+
+Outputs:
+  HttpApiEndpoint:
+    Description: "HTTP API Gateway endpoint URL"
+    Value: !Sub "https://${PathAbleApi}.execute-api.${AWS::Region}.amazonaws.com"
+  KeyframesBucketName:
+    Description: "Name of the S3 bucket for blurred keyframes"
+    Value: !Ref KeyframesBucket
+  FacilitiesTopicArn:
+    Description: "ARN of SNS Facilities Approval Topic"
+    Value: !Ref FacilitiesTopic

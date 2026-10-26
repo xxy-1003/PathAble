@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "event_id": "evt-0205",
+  "client_id": "laptop-demo-unit-02",
+  "timestamp": "2026-10-24T03:22:00Z",
+  "edge": {
+    "from_node": "B",
+    "to_node": "C"
+  },
+  "current_node": "B",
+  "destination_node": "D",
+  "local_reroute": ["B", "E", "F", "D"],
+  "observations": {
+    "confidence": 0.85,
+    "obstacle_classes": ["chair", "dining table"],
+    "distance_band": "near",
+    "ground_contact_distance_m": 0.85,
+    "zone_occupancy": {
+      "left": "occupied",
+      "centre": "occupied",
+      "right": "occupied"
+    },
+    "moving": false,
+    "consecutive_blocked_frames": 8
+  },
+  "keyframes": [
+    {
+      "frame_id": "kf_0205_1",
+      "filename": "chair_table_b_c_3.jpg",
+      "s3_key": "events/evt-0205/chair_table_b_c_3.jpg",
+      "sha256": "8e1f5ed414474e4033ac29ccb8653d9b048039e1a90f1d3e8c0e27161b2dff05",
+      "mime_type": "image/jpeg",
+      "people_blurred": true
+    }
+  ],
+  "privacy": {
+    "people_blurred_on_device": true,
+    "face_recognition_used": false,
+    "s3_lifecycle_days": 7
+  },
+  "map_version": 1
+}

@@ -1,0 +1,569 @@
+{
+  "metadata": {
+    "fixture_type": "SYNTHETIC_FIXTURE_NOT_MEASURED_TRIAL",
+    "description": "80 synthetic scenario trial executions for pre-integration test harness verification",
+    "total_trials": 80
+  },
+  "trials": [
+    {
+      "trial_id": "SCEN-01_T01",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T02",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T03",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T04",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T05",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T06",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T07",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T08",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T09",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-01_T10",
+      "scenario_id": 1,
+      "scenario_name": "clear_corridor",
+      "ground_truth": {"acceptable_actions": ["CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-02_T01",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T02",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T03",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T04",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T05",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T06",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T07",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T08",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T09",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-02_T10",
+      "scenario_id": 2,
+      "scenario_name": "centre_obstacle",
+      "ground_truth": {"acceptable_actions": ["STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-03_T01",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-03_T02",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-03_T03",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-03_T04",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-03_T05",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-03_T06",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-03_T07",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-03_T08",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-03_T09",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-03_T10",
+      "scenario_id": 3,
+      "scenario_name": "left_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-04_T01",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-04_T02",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-04_T03",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-04_T04",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-04_T05",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-04_T06",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-04_T07",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-04_T08",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-04_T09",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-04_T10",
+      "scenario_id": 4,
+      "scenario_name": "right_side_blocked",
+      "ground_truth": {"acceptable_actions": ["CONTINUE", "STEP_ASIDE"], "safety_critical": false},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-05_T01",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T02",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T03",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T04",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T05",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T06",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T07",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T08",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T09",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-05_T10",
+      "scenario_id": 5,
+      "scenario_name": "full_blockage",
+      "ground_truth": {"acceptable_actions": ["REROUTE"], "safety_critical": false},
+      "execution": {"system_action": "REROUTE"}
+    },
+    {
+      "trial_id": "SCEN-06_T01",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T02",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T03",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T04",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T05",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T06",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T07",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T08",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T09",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-06_T10",
+      "scenario_id": 6,
+      "scenario_name": "moving_person",
+      "ground_truth": {"acceptable_actions": ["WAIT_AND_REOBSERVE", "CONTINUE"], "safety_critical": false},
+      "execution": {"system_action": "WAIT_AND_REOBSERVE"}
+    },
+    {
+      "trial_id": "SCEN-07_T01",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-07_T02",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-07_T03",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-07_T04",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-07_T05",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STEP_ASIDE"}
+    },
+    {
+      "trial_id": "SCEN-07_T06",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-07_T07",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-07_T08",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-07_T09",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "CONTINUE"}
+    },
+    {
+      "trial_id": "SCEN-07_T10",
+      "scenario_id": 7,
+      "scenario_name": "low_light",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE", "CONTINUE", "STEP_ASIDE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T01",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T02",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T03",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T04",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T05",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T06",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T07",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T08",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T09",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    },
+    {
+      "trial_id": "SCEN-08_T10",
+      "scenario_id": 8,
+      "scenario_name": "glass_and_glare",
+      "ground_truth": {"acceptable_actions": ["STOP_AND_ESCALATE"], "safety_critical": true},
+      "execution": {"system_action": "STOP_AND_ESCALATE"}
+    }
+  ]
+}
