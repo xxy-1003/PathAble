@@ -201,7 +201,7 @@ def main() -> None:
         trial_dir = Path(__file__).parent / "calibration" / "camera_route_trials" / str(time.time_ns())
         trial_dir.mkdir(parents=True)
         print(f"CAMERA REGION DEMO: central blue rectangle represents B-C. Logs: {trial_dir}")
-        print("Junction B is operator-assigned. Chair overlap is a demo trigger, not measured corridor clearance.")
+        print("Junction B is operator-assigned. Recognised obstacle overlap is a demo trigger, not measured clearance.")
     if aws_client:
         print(f"AWS WORKFLOW ENABLED: Camera {args.camera_id} at Junction B (Edge B-C)")
         print(f"Connecting to: {args.api_url}{args.api_prefix}")
@@ -239,10 +239,17 @@ def main() -> None:
                 monitor_status = monitor.update(pipeline.last_vision_result, t_now,
                                                 (frame.shape[1], frame.shape[0]))
                 if manual_demo:
-                    if monitor_status['trigger'] and not manual_demo.confirmed:
-                        manual_demo.propose_from_camera(monitor_status)
-                        cv2.imwrite(str(trial_dir / 'trigger.png'), frame)
-                        print("CAMERA DEMO TRIGGER: " + json.dumps(manual_demo.last_event))
+                    transition = monitor_status['transition']
+                    if transition == 'detected':
+                        if not manual_demo.confirmed:
+                            manual_demo.propose_from_camera(monitor_status)
+                            print("CAMERA DEMO TRIGGER: " + json.dumps(manual_demo.last_event))
+                        else:
+                            manual_demo.announce_camera_update(monitor_status)
+                            print("CAMERA DEMO UPDATE: " + json.dumps(monitor_status))
+                    elif transition == 'not_detected' and manual_demo.confirmed:
+                        manual_demo.announce_camera_update(monitor_status)
+                        print("CAMERA DEMO UPDATE: " + json.dumps(monitor_status))
                     with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
                         log.write(json.dumps(dict(timestamp=t_now, mode='camera_region_demo',
                             evidence=monitor_status, proposed_route=list(manual_demo.route),
@@ -264,7 +271,6 @@ def main() -> None:
                             aws_client.set_status(DeviceWorkflowStatus.CONNECTION_UNAVAILABLE,
                                                   'Evidence capture/outbox unavailable; reconcile saved state before retry')
                         if rec:
-                            cv2.imwrite(str(trial_dir / f"trigger_{rec.report_id}.png"), frame)
                             print(f"AWS WORKFLOW TRIGGER: Queued report {rec.report_id} to AWS outbox.")
                     with (trial_dir / 'observations.jsonl').open('a', encoding='utf-8') as log:
                         log.write(json.dumps(dict(timestamp=t_now, mode='aws_workflow',
@@ -303,9 +309,12 @@ def main() -> None:
                     f"Voice: {playback['mode']} | {playback['state']} (backend status)",
                 ]
                 if monitor:
-                    lines[0] = "CAMERA REGION DEMO | Assigned B | R: repeat route | Q: exit"
-                    lines[1] = ("DEMO TRIGGERED by repeated chair overlap" if manual_demo.confirmed
-                                else f"Monitoring chair overlap: {monitor_status['positive_frames']} positive frames")
+                    lines[0] = "OBJECT REGION DEMO | Assigned B | R: repeat route | Q: exit"
+                    if manual_demo.confirmed:
+                        lines[1] = ("Object currently detected" if monitor_status['state'] == 'detected'
+                                    else "Object not detected; path still unverified")
+                    else:
+                        lines[1] = (f"Monitoring supported obstacles: {monitor_status['positive_frames']} positive frames")
                 for index, line in enumerate(lines):
                     cv2.putText(panel, line, (8, 20 + index * 23),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 255, 255), 1)

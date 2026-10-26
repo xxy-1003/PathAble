@@ -315,15 +315,18 @@ class AwsDeviceClient:
             "User-Agent": "PathAble-DeviceClient/1.0",
         }
         if self.auth_token:
-            headers["Authorization"] = f"Bearer {self.auth_token}"
+            token = self.auth_token.strip()
+            if not token or any(ord(c) < 33 or ord(c) > 126 for c in token):
+                raise RequestRejected("Camera token is malformed. Sign in as camera-demo and copy only the access token.")
+            headers["Authorization"] = f"Bearer {token}"
 
         data_bytes = None
         if payload is not None:
             headers["Content-Type"] = "application/json"
             data_bytes = json.dumps(payload).encode("utf-8")
 
-        req = urllib.request.Request(url, data=data_bytes, headers=headers, method=method)
         try:
+            req = urllib.request.Request(url, data=data_bytes, headers=headers, method=method)
             with urllib.request.urlopen(req, timeout=self.http_timeout_s) as response:
                 status_code = response.getcode()
                 body = response.read().decode("utf-8")
@@ -339,8 +342,10 @@ class AwsDeviceClient:
             except json.JSONDecodeError:
                 parsed = {"detail": err_body}
             return e.code, parsed
+        except (ValueError, UnicodeError) as e:
+            raise RequestRejected("Invalid API request. Check the API address and copy only the camera access token.") from e
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            raise ConnectionError(f"HTTP request to {url} failed: {e}") from e
+            raise ConnectionError(f"Cannot reach the configured API ({type(e).__name__}); check connection and API address.") from e
 
     # -------------------------------------------------------------------------
     # Outbox worker (photo upload + report submission with retries)
@@ -359,6 +364,9 @@ class AwsDeviceClient:
                     break
                 record.retries += 1
                 try:
+                    # Save the attempt before transport can fail. Otherwise a
+                    # header/encoding error misleadingly leaves zero attempts.
+                    self._persist_outbox_record(record)
                     # Step 1: Upload photo if not yet uploaded
                     if not record.photo_id:
                         self.set_status(DeviceWorkflowStatus.UPLOADING_EVIDENCE)
@@ -382,10 +390,10 @@ class AwsDeviceClient:
                     if attempt + 1 < self.max_submission_attempts:
                         self._stop_event.wait(min(10.0, 1.5 * (attempt + 1)))
                 except Exception as err:
-                    record.last_error = "Local processing/persistence failed; inspect outbox before retry"
+                    record.last_error = f"Camera upload stopped ({type(err).__name__}); inspect the saved report before restarting."
                     self._recovery_error = True
                     logger.error("Report %s processing failed (%s)", record.report_id, type(err).__name__)
-                    self.set_status(DeviceWorkflowStatus.CONNECTION_UNAVAILABLE, record.last_error)
+                    self._save_failure(record, record.last_error)
                     break
 
             self._submission_queue.task_done()
@@ -416,6 +424,10 @@ class AwsDeviceClient:
     def _raise_api_error(operation, status):
         # Server bodies can contain private values; do not copy them to logs/outbox.
         error = ConnectionError if status in (408, 429, 500, 502, 503, 504) else RequestRejected
+        if status == 401:
+            raise error(f"{operation} failed (HTTP 401). Sign in again as camera-demo and restart with the fresh access token.")
+        if status == 403:
+            raise error(f"{operation} failed (HTTP 403). Camera access is denied; use camera-demo and check its API permissions.")
         raise error(f"{operation} failed (HTTP {status}); reconcile state or correct configuration before restarting retries")
 
     @staticmethod
@@ -472,7 +484,7 @@ class AwsDeviceClient:
 
     def _refresh_status(self):
         if self._recovery_error:
-            self.set_status(DeviceWorkflowStatus.CONNECTION_UNAVAILABLE, "Local recovery requires attention; no new report will be created")
+            self.set_status(DeviceWorkflowStatus.CONNECTION_UNAVAILABLE, self.last_error or "Local recovery requires attention; no new report will be created")
         elif self._current_report:
             record = self._current_report
             if record.last_error:
@@ -489,7 +501,7 @@ class AwsDeviceClient:
 
     def _run_map_poller(self) -> None:
         """Periodically polls /map/version and synchronizes authoritative graph."""
-        while not self._stop_event.is_set():
+        while not self._stop_event.is_set() and not self._recovery_error:
             try:
                 self.poll_and_synchronize_map()
             except ConnectionError as err:
@@ -508,7 +520,7 @@ class AwsDeviceClient:
         Returns True if a new map version was applied.
         """
         if self._recovery_error:
-            raise RequestRejected("Resolve local recovery errors before polling")
+            raise RequestRejected(self.last_error or "Resolve local recovery errors before polling")
         self.map_synchronized = False
         status_code, ver_resp = self._http_request("GET", "/map/version")
         if status_code != 200:

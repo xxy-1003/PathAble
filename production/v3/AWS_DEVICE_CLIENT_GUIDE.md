@@ -115,6 +115,20 @@ python production/v3/live_navigation.py --start B --dest D --aws-workflow --api-
 
 ## Device Workflow States
 
+For the real AWS demo, `run_aws_demo.ps1 -PromptForToken` asks for the camera
+access token in a hidden terminal prompt. Start the command first, then copy
+the token from **Camera / laptop sign-in**; copying another command after the
+token replaces the clipboard. Never paste the token into chat or a command
+argument. The launcher makes a read-only map-version request before starting
+the camera or retrying saved uploads. Malformed, expired and rejected credentials
+produce an actionable error at this stage. The API remains responsible for token
+verification and upload permission checks.
+
+Retry with the same outbox directory to preserve report IDs. A fresh directory
+creates independent events and does not fix authentication. Unexpected processing
+errors now save their exception type and attempt count without saving secret
+exception contents, and map polling preserves the original error message.
+
 The HUD overlay and logs display the active lifecycle:
 
 | Status | Meaning |

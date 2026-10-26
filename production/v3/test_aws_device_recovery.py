@@ -2,7 +2,7 @@
 import copy
 import json
 import threading
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -208,6 +208,31 @@ def test_report_approval_alone_never_mutates_the_route(client):
     client._accept_report_response(record, report_response(record, "APPROVED"))
     assert client._current_report is None and not client.is_edge_blocked_in_cloud
     assert client.proposed_route == ["B", "C", "D"] and not client.voice.spoken
+
+
+def test_copied_multiline_command_is_rejected_before_network_without_poisoning_outbox(client):
+    client.auth_token = "copied-command\nPRIVATE_TOKEN_TEXT"
+    record = client.on_chair_overlap_trigger(EVIDENCE, JPEG)
+    with patch("urllib.request.urlopen", side_effect=ValueError("PRIVATE_TOKEN_TEXT")) as request:
+        run_worker_batch(client)
+    request.assert_not_called()
+    assert not client._recovery_error
+    saved = json.loads((client.outbox_dir / (record.report_id + ".json")).read_text())
+    assert saved["retries"] == 1 and "token" in saved["last_error"].lower()
+    assert "PRIVATE_TOKEN_TEXT" not in saved["last_error"]
+    recovered = AwsDeviceClient(outbox_dir=client.outbox_dir)
+    assert recovered._submission_queue.get_nowait().report_id == record.report_id
+
+
+def test_unexpected_upload_error_is_saved_and_not_hidden_by_map_polling(client):
+    record = client.on_chair_overlap_trigger(EVIDENCE, JPEG)
+    client._http_request = Mock(side_effect=RuntimeError("PRIVATE_EXCEPTION_DETAILS"))
+    run_worker_batch(client)
+    saved = json.loads((client.outbox_dir / (record.report_id + ".json")).read_text())
+    assert saved["retries"] == 1 and "RuntimeError" in saved["last_error"]
+    assert "PRIVATE_EXCEPTION_DETAILS" not in saved["last_error"]
+    with pytest.raises(RequestRejected, match="RuntimeError"):
+        client.poll_and_synchronize_map()
 
 
 def test_successful_report_response_must_match_queued_identity(client):

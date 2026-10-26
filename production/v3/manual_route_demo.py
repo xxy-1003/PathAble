@@ -56,3 +56,21 @@ class ManualRouteDemo:
             return False
         self.voice.speak(self.announcement, force=True, priority=True)
         return True
+
+    def announce_camera_update(self, evidence):
+        """Speak stable camera-state changes without treating absence as clearance."""
+        if not self.confirmed:
+            return False
+        object_class = evidence.get('object_class') or 'obstacle'
+        if evidence.get('transition') == 'not_detected':
+            message = (f'Camera update. No {object_class} is currently detected in the monitored B to C area. '
+                       'This does not verify that the path is clear. Remain stopped and wait for a human check.')
+        elif evidence.get('transition') == 'detected':
+            message = (f'Camera update. A {object_class} is detected again in the monitored B to C area. '
+                       'The proposed route remains ' + ', '.join(self.route) +
+                       '. The alternative path is not verified clear. Remain stopped.')
+        else:
+            return False
+        self.announcement = message
+        self.voice.speak(message, force=True, priority=True)
+        return True
